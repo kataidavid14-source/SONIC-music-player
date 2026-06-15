@@ -1215,16 +1215,31 @@
       </div>
     </div>
 
-    <!-- Dal törlés -->
-    <div class="admin-section">
-      <div class="admin-section-title">🗑 Cloud dalok kezelése</div>
-      <div id="admin-song-list"><div style="color:var(--muted);font-size:0.85rem;">Betöltés...</div></div>
-    </div>
-
     <!-- Feljelentések -->
     <div class="admin-section">
       <div class="admin-section-title">🚩 Feljelentések</div>
       <div id="admin-report-list"><div style="color:var(--muted);font-size:0.85rem;">Betöltés...</div></div>
+    </div>
+
+    <!-- Dal kezelés -->
+    <div class="admin-section" id="admin-songs-section">
+      <div class="admin-section-title">🗑 Cloud dalok kezelése</div>
+      <div id="admin-song-list"><div style="color:var(--muted);font-size:0.85rem;">Betöltés...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- GOOGLE ADATVÉDELMI TÁJÉKOZTATÓ MODAL -->
+<div class="admin-overlay" id="google-privacy-modal" style="display:none;">
+  <div class="admin-box" style="max-width:420px;">
+    <div class="admin-title">☁ Cloud playlist</div>
+    <div class="admin-subtitle" style="font-size:1rem;margin-bottom:1rem;">Google fiók használata</div>
+    <p style="font-size:0.85rem;color:var(--muted);line-height:1.6;margin-bottom:1.5rem;">
+      A cloud playlist megtekintéséhez Google-fiókos azonosítás szükséges. Az alkalmazás kizárólag a lejátszási lista adatainak olvasásához használja a Google-fiókodat — semmilyen személyes adatot nem tárolunk, nem osztunk meg harmadik féllel, és nem végzünk más műveletet a fiókoddal. A bejelentkezés után bármikor kijelentkezhetsz.
+    </p>
+    <div style="display:flex;gap:0.75rem;">
+      <button class="admin-btn" style="background:var(--surface2);color:var(--muted);flex:1;" onclick="document.getElementById('google-privacy-modal').style.display='none'">Mégse</button>
+      <button class="admin-btn" style="flex:2;" onclick="document.getElementById('google-privacy-modal').style.display='none'; _startGoogleSignIn();">Megértettem, folytatás</button>
     </div>
   </div>
 </div>
@@ -1746,7 +1761,7 @@ async function loadAdminData() {
         const songName = r[1] || '—';
         const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(songName)}`;
         return `
-        <div class="admin-song-row" style="${isFlagged ? 'background:rgba(250,109,143,0.08);border-left:3px solid var(--accent2);padding-left:0.75rem;' : isProtected ? 'background:rgba(124,109,250,0.08);border-left:3px solid var(--accent);padding-left:0.75rem;' : ''}">
+        <div class="admin-song-row" id="admin-song-row-${i+2}" style="${isFlagged ? 'background:rgba(250,109,143,0.08);border-left:3px solid var(--accent2);padding-left:0.75rem;' : isProtected ? 'background:rgba(124,109,250,0.08);border-left:3px solid var(--accent);padding-left:0.75rem;' : ''}">
           <span style="font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--muted);width:20px;">${i+1}</span>
           <div style="flex:1;min-width:0;">
             <a href="${googleUrl}" target="_blank" style="color:var(--text);text-decoration:none;font-size:0.85rem;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" 
@@ -1773,20 +1788,44 @@ async function loadAdminData() {
     if (!flaggedRows.length) {
       reportList.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;">Nincsenek feljelentések</div>';
     } else {
-      reportList.innerHTML = flaggedRows.map(r => `
-        <div class="admin-song-row">
+      reportList.innerHTML = flaggedRows.map((r, i) => {
+        const rowIndex = rows.indexOf(r) + 2;
+        return `
+        <div class="admin-song-row" onclick="scrollToSong(${rowIndex})" style="cursor:pointer;transition:background 0.15s;" 
+             onmouseover="this.style.background='rgba(250,109,143,0.1)'" onmouseout="this.style.background=''">
           <span class="admin-song-name">🚩 ${escHtml(r[1]||'—')}</span>
           <span class="admin-song-meta">${escHtml(r[4]||'')}</span>
           <span class="admin-song-meta" style="color:var(--accent2);">${escHtml(r[7]||'')}</span>
           <span class="admin-song-meta">${escHtml(r[8]||'')}</span>
-        </div>
-      `).join('');
+          <span style="font-size:0.7rem;color:var(--muted);font-family:'Space Mono',monospace;">→ ugrás</span>
+        </div>`;
+      }).join('');
     }
 
   } catch(e) {
     document.getElementById('admin-song-list').innerHTML =
       '<div style="color:var(--accent2);font-size:0.82rem;">Hiba: ' + e.message + '</div>';
   }
+}
+
+function scrollToSong(rowIndex) {
+  const target = document.getElementById(`admin-song-row-${rowIndex}`);
+  const section = document.getElementById('admin-songs-section');
+  if (!target || !section) return;
+
+  // Scroll a Cloud dalok kezelése szekcióhoz
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Kiemelés
+  setTimeout(() => {
+    target.style.transition = 'box-shadow 0.2s, outline 0.2s';
+    target.style.outline = '2px solid var(--accent2)';
+    target.style.borderRadius = '8px';
+    setTimeout(() => {
+      target.style.outline = '';
+    }, 2000);
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 400);
 }
 
 async function adminToggleProtect(rowNum, name, isCurrentlyProtected) {
@@ -2429,11 +2468,10 @@ document.addEventListener('keydown', e => {
 // ===== CLOUD / GOOGLE INTEGRATION =====
 
 const GOOGLE_CLIENT_ID = '201865716068-tnjvollnge5hs52vb1etht36202rkqc8.apps.googleusercontent.com';
+const GOOGLE_API_KEY = 'AIzaSyAf1fgg0JJs4RnW0bpbccYeDDZsLdEIWE8';
+const GOOGLE_API_KEY = 'AIzaSyAf1fgg0JJs4RnW0bpbccYeDDZsLdEIWE8';
 const SHEETS_ID = '19owoL_9_Ntojlq06_jaZTW7JnZnP56NmpcRZHbJw0JI';
-// Drive folder ID — set this after you create a shared Drive folder and paste its ID here
-// To get it: create folder in Drive → Share (Anyone with link, Editor) → copy ID from URL
 const DRIVE_FOLDER_ID = '16HOzkcNbcj6H5qribKcisnV9LRjrQCFC';
-// Host: Netlify — authorized origin a Google Cloud Console-ban: https://YOUR-SITE.netlify.app
 
 let gAccessToken = null;   // OAuth access token
 let gUserInfo = null;      // { name, email, picture }
@@ -2443,10 +2481,14 @@ let activeTab = 'local';
 // -- Google Sign-In --
 
 function startGoogleSignIn() {
+  document.getElementById('google-privacy-modal').style.display = 'flex';
+}
+
+function _startGoogleSignIn() {
   // Force fresh consent every time so the correct scopes are always granted
   const client = google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
-    scope: 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets email profile',
+    scope: 'https://www.googleapis.com/auth/spreadsheets.readonly email profile',
     prompt: 'consent',
     include_granted_scopes: false,
     callback: onTokenReceived,
@@ -2496,9 +2538,9 @@ function updateCloudUI(signedIn) {
 
   // Reload cloud panel message if on that tab
   if (!signedIn) {
-    document.getElementById('cloud-playlist').innerHTML =
-      '<div class="pl-empty-cloud"><div>Jelentkezz be a cloud playlist megtekintéséhez</div></div>';
     document.getElementById('cloud-pl-count').textContent = '—';
+    // Playlist marad látható, csak újratöltjük API key-jel
+    if (activeTab === 'cloud') loadCloudPlaylist();
   }
 }
 
@@ -2518,10 +2560,9 @@ function switchTab(tab) {
   document.getElementById('panel-local').style.display = tab === 'local' ? '' : 'none';
   document.getElementById('panel-cloud').style.display = tab === 'cloud' ? '' : 'none';
 
-  if (tab === 'cloud' && gAccessToken) loadCloudPlaylist();
+  if (tab === 'cloud') loadCloudPlaylist();
   if (tab === 'cloud' && !gAccessToken) {
-    document.getElementById('cloud-playlist').innerHTML =
-      '<div class="pl-empty-cloud">Jelentkezz be a bal felső sarokban a cloud playlist megtekintéséhez ☁</div>';
+    // Playlist betöltődik API key-jel, de a bejelentkezési UI megmarad
   }
 }
 
@@ -2967,17 +3008,14 @@ async function ensureFlaggedFormatting() {
 // -- Cloud Playlist loading --
 
 async function loadCloudPlaylist() {
-  if (!gAccessToken) return;
   const container = document.getElementById('cloud-playlist');
   container.innerHTML = '<div class="cloud-loading"><div class="cloud-spinner"></div><br>Cloud playlist betöltése...</div>';
 
   try {
-    // Columns: A=Item ID, B=Item name, C=Type, D=Notes, E=Uploader, F=File URL,
-    //          G=Flagged, H=Flagged type, I=Flagged type special, J=Cant be flagged
+    // API key alapú olvasás — bejelentkezés nélkül is működik
     const resp = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/A2:J200`, {
-      headers: { 'Authorization': 'Bearer ' + gAccessToken }
-    });
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/A2:J200?key=${GOOGLE_API_KEY}`
+    );
     const data = await resp.json();
     const rows = data.values || [];
 
@@ -3042,11 +3080,6 @@ async function loadCloudPlaylist() {
 }
 
 function refreshCloudPlaylist() {
-  if (!gAccessToken) {
-    document.getElementById('cloud-playlist').innerHTML =
-      '<div class="pl-empty-cloud">Jelentkezz be először! ☁</div>';
-    return;
-  }
   loadCloudPlaylist();
 }
 
@@ -3059,25 +3092,22 @@ async function playCloudItem(fileUrl, name, type, driveId) {
   if (!fileUrl) return;
   const isVideo = type === 'Video';
 
-  // Use passed driveId, or extract from URL as fallback
   let driveFileId = driveId || null;
   if (!driveFileId) {
     const idMatch = fileUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
     if (idMatch) driveFileId = idMatch[1];
   }
 
-  // Show loading indicator
   showCloudStatus('⏳ Betöltés...', '');
 
   let blobUrl = fileUrl; // fallback
 
-  if (driveFileId && gAccessToken) {
-    // Check cache first
+  if (driveFileId) {
     if (cloudBlobCache[driveFileId]) {
       blobUrl = cloudBlobCache[driveFileId];
-    } else {
+    } else if (gAccessToken) {
+      // Token-nel: Drive API stream
       try {
-        // Use Drive API with auth token to get actual media stream
         const resp = await fetch(
           `https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`, {
           headers: { 'Authorization': 'Bearer ' + gAccessToken }
@@ -3088,9 +3118,11 @@ async function playCloudItem(fileUrl, name, type, driveId) {
         cloudBlobCache[driveFileId] = blobUrl;
       } catch(err) {
         console.warn('Drive API stream failed, trying direct URL:', err);
-        showCloudStatus('⚠ ' + err.message, 'err');
-        blobUrl = fileUrl; // fallback to original URL
+        blobUrl = `https://drive.google.com/uc?export=download&id=${driveFileId}`;
       }
+    } else {
+      // Token nélkül: publikus Drive URL
+      blobUrl = `https://drive.google.com/uc?export=download&id=${driveFileId}`;
     }
   }
 
