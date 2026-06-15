@@ -1707,25 +1707,50 @@ async function adminLogin() {
 async function openAdminPanel() {
   document.getElementById('admin-panel-overlay').style.display = 'block';
 
-  if (!gAccessToken) {
-    // Nincs Google token — beléptetjük, majd utána töltjük az adatokat
+  if (!adminAccessToken) {
+    // Admin-specifikus OAuth: teljes írási jogokkal
     document.getElementById('admin-song-list').innerHTML =
-      '<div style="color:var(--muted);font-size:0.85rem;">⏳ Google bejelentkezés szükséges az adatokhoz...</div>';
+      '<div style="color:var(--muted);font-size:0.85rem;">⏳ Google bejelentkezés szükséges az admin műveletekhez...</div>';
     document.getElementById('admin-report-list').innerHTML = '';
     document.getElementById('admin-stat-songs').textContent = '…';
     document.getElementById('admin-stat-reports').textContent = '…';
     document.getElementById('admin-stat-flagged').textContent = '…';
 
-    // Elindítjuk a Google OAuth flow-t
-    // Sikeres bejelentkezés után az onTokenReceived hívja loadAdminDataIfOpen()-t
     _adminPanelPendingLoad = true;
-    startGoogleSignIn();
+    _startAdminGoogleSignIn();
   } else {
     await loadAdminData();
   }
 }
 
 let _adminPanelPendingLoad = false;
+
+function _startAdminGoogleSignIn() {
+  // Admin OAuth: teljes Sheets + Drive írási jogok
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive email profile',
+    prompt: 'consent',
+    include_granted_scopes: false,
+    callback: onAdminTokenReceived,
+  });
+  client.requestAccessToken();
+}
+
+async function onAdminTokenReceived(resp) {
+  if (resp.error) {
+    console.error('Admin OAuth hiba:', resp.error);
+    alert('Google bejelentkezés sikertelen: ' + resp.error);
+    return;
+  }
+  adminAccessToken = resp.access_token;
+  console.log('Admin token megkapva. Scope:', resp.scope);
+
+  if (_adminPanelPendingLoad) {
+    _adminPanelPendingLoad = false;
+    await loadAdminData();
+  }
+}
 
 function closeAdminPanel() {
   document.getElementById('admin-panel-overlay').style.display = 'none';
@@ -1737,7 +1762,7 @@ async function loadAdminData() {
   try {
     const resp = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/Sheet1!A2:J200`, {
-      headers: { Authorization: 'Bearer ' + gAccessToken }
+      headers: { Authorization: 'Bearer ' + adminAccessToken }
     });
     const data = await resp.json();
     const rows = (data.values || []).filter(r => r[1]); // csak sorok ahol van Item name
@@ -1836,7 +1861,7 @@ async function adminToggleProtect(rowNum, name, isCurrentlyProtected) {
     // J oszlop = Cant be flagged
     await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/Sheet1!J${rowNum}?valueInputOption=RAW`, {
       method: 'PUT',
-      headers: { Authorization: 'Bearer ' + gAccessToken, 'Content-Type': 'application/json' },
+      headers: { Authorization: 'Bearer ' + adminAccessToken, 'Content-Type': 'application/json' },
       body: JSON.stringify({ values: [[newVal]] })
     });
 
@@ -1844,7 +1869,7 @@ async function adminToggleProtect(rowNum, name, isCurrentlyProtected) {
     if (!isCurrentlyProtected) {
       await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/Sheet1!G${rowNum}:H${rowNum}?valueInputOption=RAW`, {
         method: 'PUT',
-        headers: { Authorization: 'Bearer ' + gAccessToken, 'Content-Type': 'application/json' },
+        headers: { Authorization: 'Bearer ' + adminAccessToken, 'Content-Type': 'application/json' },
         body: JSON.stringify({ values: [['FALSE', '']] })
       });
     }
@@ -1861,7 +1886,7 @@ async function adminDeleteSong(rowNum, name) {
     // 1. Sheet1 sor törlése
     const sheetInfoResp = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}?fields=sheets.properties`, {
-      headers: { Authorization: 'Bearer ' + gAccessToken }
+      headers: { Authorization: 'Bearer ' + adminAccessToken }
     });
     const sheetInfo = await sheetInfoResp.json();
     const sheet1 = sheetInfo.sheets.find(s => s.properties.title === 'Sheet1');
@@ -1871,7 +1896,7 @@ async function adminDeleteSong(rowNum, name) {
     // A Drive file ID az F oszlopból kinyerhető (URL-ből)
     const rowResp = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/Sheet1!A${rowNum}:J${rowNum}`, {
-      headers: { Authorization: 'Bearer ' + gAccessToken }
+      headers: { Authorization: 'Bearer ' + adminAccessToken }
     });
     const rowData = await rowResp.json();
     const rowVals = (rowData.values || [[]])[0] || [];
@@ -1884,7 +1909,7 @@ async function adminDeleteSong(rowNum, name) {
     // Sor törlése Sheetsből
     await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}:batchUpdate`, {
       method: 'POST',
-      headers: { Authorization: 'Bearer ' + gAccessToken, 'Content-Type': 'application/json' },
+      headers: { Authorization: 'Bearer ' + adminAccessToken, 'Content-Type': 'application/json' },
       body: JSON.stringify({ requests: [{ deleteDimension: {
         range: { sheetId, dimension: 'ROWS', startIndex: rowNum-1, endIndex: rowNum }
       }}]})
@@ -1894,7 +1919,7 @@ async function adminDeleteSong(rowNum, name) {
     if (driveId) {
       await fetch(`https://www.googleapis.com/drive/v3/files/${driveId}`, {
         method: 'DELETE',
-        headers: { Authorization: 'Bearer ' + gAccessToken }
+        headers: { Authorization: 'Bearer ' + adminAccessToken }
       });
     }
 
@@ -2472,7 +2497,8 @@ const GOOGLE_API_KEY = 'AIzaSyAf1fgg0JJs4RnW0bpbccYeDDZsLdEIWE8';
 const SHEETS_ID = '19owoL_9_Ntojlq06_jaZTW7JnZnP56NmpcRZHbJw0JI';
 const DRIVE_FOLDER_ID = '16HOzkcNbcj6H5qribKcisnV9LRjrQCFC';
 
-let gAccessToken = null;   // OAuth access token
+let gAccessToken = null;       // OAuth access token (readonly — lejátszáshoz)
+let adminAccessToken = null;   // OAuth access token (írási jogokkal — admin műveletekhez)
 let gUserInfo = null;      // { name, email, picture }
 let cloudFileToUpload = null; // { file, name }
 let activeTab = 'local';
