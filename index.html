@@ -2487,7 +2487,7 @@ function _startGoogleSignIn() {
   // Force fresh consent every time so the correct scopes are always granted
   const client = google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
-    scope: 'https://www.googleapis.com/auth/spreadsheets.readonly email profile',
+    scope: 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/spreadsheets.readonly email profile',
     prompt: 'consent',
     include_granted_scopes: false,
     callback: onTokenReceived,
@@ -3113,15 +3113,20 @@ async function playCloudItem(fileUrl, name, type, driveId) {
         });
         if (!resp.ok) throw new Error('Drive letöltés sikertelen: ' + resp.status);
         const blob = await resp.blob();
+        if (!blob.type.startsWith('audio') && !blob.type.startsWith('video')) {
+          throw new Error('Érvénytelen fájltípus a Drive-ról: ' + (blob.type || 'ismeretlen'));
+        }
         blobUrl = URL.createObjectURL(blob);
         cloudBlobCache[driveFileId] = blobUrl;
       } catch(err) {
-        console.warn('Drive API stream failed, trying direct URL:', err);
-        blobUrl = `https://drive.google.com/uc?export=download&id=${driveFileId}`;
+        console.warn('Drive API stream sikertelen:', err);
+        showCloudStatus('⚠ Nem sikerült betölteni: ' + err.message, 'err');
+        return;
       }
     } else {
-      // Token nélkül: publikus Drive URL
-      blobUrl = `https://drive.google.com/uc?export=download&id=${driveFileId}`;
+      // Token nélkül nem lehet letölteni
+      showCloudStatus('⚠ A lejátszáshoz be kell jelentkezni Google-lel!', 'err');
+      return;
     }
   }
 
