@@ -973,6 +973,35 @@
   .search-no-results.visible { display: block; }
   /* ===== KERESŐMODUL VÉGE ===== */
 
+  /* Emberek által jóváhagyott badge */
+  .approved-badge {
+    position: relative;
+    display: inline-block;
+    cursor: default;
+    font-size: 0.85rem;
+  }
+  .approved-tooltip {
+    position: absolute;
+    left: 50%; bottom: 120%;
+    transform: translateX(-50%) translateY(4px);
+    background: var(--surface2);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.62rem;
+    white-space: nowrap;
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.18s, transform 0.18s;
+    z-index: 10;
+  }
+  .approved-badge:hover .approved-tooltip {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
   /* Cloud loading state */
   .cloud-loading {
     text-align: center; padding: 2rem 1rem;
@@ -1731,7 +1760,7 @@ async function loadAdminData() {
           ${isFlagged ? `<span class="admin-song-meta" style="color:var(--accent2);">${escHtml(r[7]||'flagelt')}</span>` : ''}
           <button class="admin-del-btn" style="background:${isProtected ? 'rgba(124,109,250,0.2)' : ''};color:${isProtected ? 'var(--accent)' : ''};border-color:${isProtected ? 'rgba(124,109,250,0.4)' : ''};" 
             onclick="adminToggleProtect(${i+2}, '${escHtml(r[1]||'')}', ${isProtected})" title="${isProtected ? 'Védelem levétele' : 'Feljelentés tiltása'}">
-            ${isProtected ? '🛡 Védett' : '🛡 Véd'}
+            ${isProtected ? '✅ Emberek által jóváhagyott' : '🛡 Véd'}
           </button>
           <button class="admin-del-btn" onclick="adminDeleteSong(${i+2}, '${escHtml(r[1]||'')}')">🗑 Törlés</button>
         </div>`;
@@ -1762,14 +1791,25 @@ async function loadAdminData() {
 
 async function adminToggleProtect(rowNum, name, isCurrentlyProtected) {
   const newVal = isCurrentlyProtected ? 'FALSE' : 'TRUE';
-  const label = isCurrentlyProtected ? `"${name}" védelmét leveszed?` : `"${name}" dal feljelentését letiltod?`;
+  const label = isCurrentlyProtected ? `"${name}" védelmét leveszed?` : `"${name}" dal feljelentését törlöd és letiltod?`;
   if (!confirm(label)) return;
   try {
+    // J oszlop = Cant be flagged
     await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/Sheet1!J${rowNum}?valueInputOption=RAW`, {
       method: 'PUT',
       headers: { Authorization: 'Bearer ' + gAccessToken, 'Content-Type': 'application/json' },
       body: JSON.stringify({ values: [[newVal]] })
     });
+
+    // Ha védjük, akkor a Flagged (G) és Flagged type (H) oszlopokat is töröljük
+    if (!isCurrentlyProtected) {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/Sheet1!G${rowNum}:H${rowNum}?valueInputOption=RAW`, {
+        method: 'PUT',
+        headers: { Authorization: 'Bearer ' + gAccessToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: [['FALSE', '']] })
+      });
+    }
+
     await loadAdminData();
   } catch(e) {
     alert('Hiba: ' + e.message);
@@ -2987,7 +3027,7 @@ async function loadCloudPlaylist() {
       return `<div class="pl-item-cloud" id="cloud-row-${sheetRow}" ${rowStyle}>
         <div class="cloud-item-icon">${icon}</div>
         <div class="cloud-item-info">
-          <div class="cloud-item-name">${escHtml(name)} ${flagBadge}</div>
+          <div class="cloud-item-name">${escHtml(name)} ${flagBadge}${cantBeFlagged ? ' <span class="approved-badge">✅<span class="approved-tooltip">Emberek által jóváhagyott</span></span>' : ''}</div>
           <div class="cloud-item-meta">${escHtml(uploader)} ${notes ? '· ' + escHtml(notes) : ''}</div>
         </div>
         ${reportBtn}
