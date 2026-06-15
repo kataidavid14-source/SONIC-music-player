@@ -1712,13 +1712,27 @@ async function loadAdminData() {
     } else {
       songList.innerHTML = rows.map((r, i) => {
         const isFlagged = r[6] === 'TRUE';
+        const isProtected = r[9] === 'TRUE';
+        const fileUrl = r[5] || '';
+        const songName = r[1] || '—';
+        const googleUrl = `https://www.google.com/search?q=${encodeURIComponent(songName)}`;
         return `
-        <div class="admin-song-row" style="${isFlagged ? 'background:rgba(250,109,143,0.08);border-left:3px solid var(--accent2);padding-left:0.75rem;' : ''}">
+        <div class="admin-song-row" style="${isFlagged ? 'background:rgba(250,109,143,0.08);border-left:3px solid var(--accent2);padding-left:0.75rem;' : isProtected ? 'background:rgba(124,109,250,0.08);border-left:3px solid var(--accent);padding-left:0.75rem;' : ''}">
           <span style="font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--muted);width:20px;">${i+1}</span>
-          <span class="admin-song-name">${isFlagged ? '🚩 ' : ''}${escHtml(r[1]||'—')}</span>
+          <div style="flex:1;min-width:0;">
+            <a href="${googleUrl}" target="_blank" style="color:var(--text);text-decoration:none;font-size:0.85rem;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" 
+               title="Google keresés: ${escHtml(songName)}"
+               onmouseover="this.style.color='var(--accent)'" 
+               onmouseout="this.style.color='var(--text)'">${isFlagged ? '🚩 ' : ''}${isProtected ? '🛡 ' : ''}${escHtml(songName)} 🔍</a>
+            ${fileUrl ? `<audio controls style="width:100%;height:28px;margin-top:0.3rem;accent-color:var(--accent);" src="${escHtml(fileUrl)}" preload="none"></audio>` : '<span style="font-size:0.72rem;color:var(--muted);">Nincs fájl URL</span>'}
+          </div>
           <span class="admin-song-meta">${escHtml(r[2]||'')}</span>
           <span class="admin-song-meta">${escHtml(r[4]||'')}</span>
           ${isFlagged ? `<span class="admin-song-meta" style="color:var(--accent2);">${escHtml(r[7]||'flagelt')}</span>` : ''}
+          <button class="admin-del-btn" style="background:${isProtected ? 'rgba(124,109,250,0.2)' : ''};color:${isProtected ? 'var(--accent)' : ''};border-color:${isProtected ? 'rgba(124,109,250,0.4)' : ''};" 
+            onclick="adminToggleProtect(${i+2}, '${escHtml(r[1]||'')}', ${isProtected})" title="${isProtected ? 'Védelem levétele' : 'Feljelentés tiltása'}">
+            ${isProtected ? '🛡 Védett' : '🛡 Véd'}
+          </button>
           <button class="admin-del-btn" onclick="adminDeleteSong(${i+2}, '${escHtml(r[1]||'')}')">🗑 Törlés</button>
         </div>`;
       }).join('');
@@ -1743,6 +1757,22 @@ async function loadAdminData() {
   } catch(e) {
     document.getElementById('admin-song-list').innerHTML =
       '<div style="color:var(--accent2);font-size:0.82rem;">Hiba: ' + e.message + '</div>';
+  }
+}
+
+async function adminToggleProtect(rowNum, name, isCurrentlyProtected) {
+  const newVal = isCurrentlyProtected ? 'FALSE' : 'TRUE';
+  const label = isCurrentlyProtected ? `"${name}" védelmét leveszed?` : `"${name}" dal feljelentését letiltod?`;
+  if (!confirm(label)) return;
+  try {
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/Sheet1!J${rowNum}?valueInputOption=RAW`, {
+      method: 'PUT',
+      headers: { Authorization: 'Bearer ' + gAccessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [[newVal]] })
+    });
+    await loadAdminData();
+  } catch(e) {
+    alert('Hiba: ' + e.message);
   }
 }
 
@@ -2569,23 +2599,20 @@ async function submitToCloud() {
   const notes = document.getElementById('cloud-notes').value.trim();
 
   document.getElementById('cloud-submit-btn').disabled = true;
-  showCloudStatus('Feltöltés Drive-ra...', '');
+  showCloudStatus('Feltöltés folyamatban...', '');
   setCloudProgress(0, true);
 
   try {
-    // Step 1: Upload to Google Drive (resumable upload)
     const driveFileId = await uploadToDrive(file, displayName, (pct) => {
       setCloudProgress(pct, true);
-      document.getElementById('cloud-progress-label').textContent = `Drive: ${pct}%`;
+      document.getElementById('cloud-progress-label').textContent = `${pct}%`;
     });
 
     setCloudProgress(100, true);
-    showCloudStatus('Drive kész! Sheets frissítése...', '');
+    showCloudStatus('Feldolgozás...', '');
 
-    // Step 2: Make the file publicly readable
     await makeDriveFilePublic(driveFileId);
 
-    // Step 3: Append row to Google Sheets
     const fileUrl = `https://drive.google.com/uc?export=download&id=${driveFileId}`;
     await appendToSheets(displayName, itemType, notes, uploaderName, fileUrl, driveFileId);
 
@@ -2693,10 +2720,10 @@ async function appendToSheets(name, type, notes, uploader, fileUrl, driveId) {
   const nextRow = (rangeData.values ? rangeData.values.length : 1) + 1;
   const newId = nextRow - 1; // ID = row - 1 (first data row = 2, so ID=1)
 
-  const values = [[newId, name, type, notes, uploader, fileUrl, driveId]];
+  const values = [[newId, name, type, notes, uploader, fileUrl, driveId, 'FALSE', '', '', 'FALSE']];
 
   const appendResp = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/A${nextRow}:G${nextRow}?valueInputOption=RAW`, {
+    `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/A${nextRow}:K${nextRow}?valueInputOption=RAW`, {
     method: 'PUT',
     headers: {
       'Authorization': 'Bearer ' + gAccessToken,
