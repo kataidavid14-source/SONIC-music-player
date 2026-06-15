@@ -1,0 +1,3193 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SONIC — Zenekontroller</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%237c6dfa'/%3E%3Cstop offset='100%25' stop-color='%23fa6d8f'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='7' fill='%230f0f1a'/%3E%3Cpath d='M2 9 L8 9 L14 3 L14 21 L8 16 L2 16 Z' fill='url(%23g)'/%3E%3Cpath d='M14 7 Q20 10 20 13 Q20 16 14 19' fill='none' stroke='url(%23g)' stroke-width='1.5' stroke-linecap='round'/%3E%3Ccircle cx='9' cy='24' r='5' fill='%231a1a2e' stroke='url(%23g)' stroke-width='1'/%3E%3Cpolygon points='5,21 3,16 7,20' fill='%237c6dfa'/%3E%3Cpolygon points='13,21 15,16 11,20' fill='%23fa6d8f'/%3E%3Cellipse cx='7.5' cy='23.5' rx='1.3' ry='1.6' fill='url(%23g)'/%3E%3Cellipse cx='10.5' cy='23.5' rx='1.3' ry='1.6' fill='url(%23g)'/%3E%3Cpolygon points='9,25.5 8,26.5 10,26.5' fill='%23fa6d8f'/%3E%3Cpath d='M14 26 Q20 23 21 27 Q22 30 17 30' fill='none' stroke='url(%23g)' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root {
+    --bg: #080810;
+    --surface: #0f0f1a;
+    --surface2: #161625;
+    --surface3: #1e1e30;
+    --accent: #7c6dfa;
+    --accent2: #fa6d8f;
+    --accent3: #6dfacc;
+    --text: #f0eeff;
+    --muted: #7a7a9a;
+    --border: rgba(124,109,250,0.18);
+    --glow: rgba(124,109,250,0.35);
+  }
+
+  [data-theme="chess"] {
+    --bg: #1a1208;
+    --surface: #241a0a;
+    --surface2: #2e2210;
+    --surface3: #3a2c18;
+    --accent: #d4a017;
+    --accent2: #c8522a;
+    --accent3: #8bc34a;
+    --text: #f5ead0;
+    --muted: #8a7a5a;
+    --border: rgba(212,160,23,0.22);
+    --glow: rgba(212,160,23,0.35);
+  }
+
+  /* THEME SWITCHER */
+  .theme-switcher {
+    display: flex; align-items: center; gap: 0.4rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    padding: 4px;
+  }
+  .theme-btn {
+    background: none; border: none; cursor: pointer;
+    padding: 0.3rem 0.75rem;
+    border-radius: 50px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    transition: all 0.25s;
+    display: flex; align-items: center; gap: 0.35rem;
+  }
+  .theme-btn.active {
+    background: var(--accent);
+    color: #fff;
+  }
+  .theme-btn:not(.active):hover { color: var(--text); }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow-x: hidden;
+  }
+
+  .noise {
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0;
+  }
+
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb1 { width: 500px; height: 500px; background: rgba(124,109,250,0.12); top: -150px; left: -150px; }
+  .orb2 { width: 400px; height: 400px; background: rgba(250,109,143,0.08); bottom: -100px; right: -100px; }
+  [data-theme="chess"] .orb1 { background: rgba(212,160,23,0.1); }
+  [data-theme="chess"] .orb2 { background: rgba(200,82,42,0.08); }
+
+  .app {
+    position: relative; z-index: 1;
+    width: 100%;
+    max-width: 880px;
+    padding: 2rem;
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 1.25rem;
+  }
+
+  /* UPLOAD SCREEN */
+  .upload-screen {
+    position: fixed; inset: 0; z-index: 100;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    transition: opacity 0.6s ease;
+  }
+  .upload-screen.hidden { opacity: 0; pointer-events: none; }
+
+  .upload-logo {
+    display: flex; align-items: center; gap: 0.6rem;
+    margin-bottom: 2rem;
+  }
+  .upload-logo-text {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.9rem;
+    letter-spacing: 0.3em;
+    background: linear-gradient(135deg, #7c6dfa 0%, #fa6d8f 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-transform: uppercase;
+  }
+
+  .upload-box {
+    width: 380px;
+    border: 1.5px dashed var(--accent);
+    border-radius: 20px;
+    padding: 3rem 2rem;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.3s;
+    background: rgba(124,109,250,0.04);
+  }
+  .upload-box:hover, .upload-box.drag { border-color: var(--accent3); background: rgba(124,109,250,0.1); transform: scale(1.02); }
+
+  .upload-icon {
+    width: 64px; height: 64px;
+    margin: 0 auto 1.5rem;
+    background: var(--surface2);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+  }
+
+  .upload-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.5rem; }
+  .upload-sub { font-size: 0.85rem; color: var(--muted); margin-bottom: 1.5rem; }
+
+  .btn-upload {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0.75rem 2rem;
+    border-radius: 50px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-upload:hover { background: #9a8dff; transform: translateY(-2px); }
+
+  .btn-upload-folder {
+    background: transparent;
+    color: var(--accent);
+    border: 1.5px solid rgba(124,109,250,0.5);
+    padding: 0.75rem 2rem;
+    border-radius: 50px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 0.5rem;
+  }
+  .btn-upload-folder:hover { background: rgba(124,109,250,0.12); border-color: var(--accent); transform: translateY(-2px); }
+
+  .upload-btn-row { display: flex; flex-direction: column; align-items: center; gap: 0; }
+
+  #file-input { display: none; }
+  #folder-input { display: none; }
+
+  /* CARD BASE */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+  }
+
+  /* COVER ART */
+  .cover-card {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    padding: 0;
+    position: relative;
+    aspect-ratio: 1;
+  }
+
+  .cover-art {
+    width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface2);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cover-art canvas {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+  }
+
+  .cover-placeholder {
+    display: flex; flex-direction: column; align-items: center; gap: 1rem;
+    position: relative; z-index: 1;
+  }
+
+  .vinyl {
+    width: 140px; height: 140px;
+    border-radius: 50%;
+    background: conic-gradient(#1a1a2e 0deg, #16213e 60deg, #0f3460 120deg, #1a1a2e 180deg, #16213e 240deg, #0f3460 300deg, #1a1a2e 360deg);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 40px rgba(124,109,250,0.3);
+    transition: transform 0.1s linear;
+  }
+  .vinyl.spinning { animation: spin 3s linear infinite; }
+  .vinyl-center {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--bg);
+    border: 3px solid var(--accent);
+  }
+
+  @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  .cover-info {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 1.5rem;
+    background: linear-gradient(to top, rgba(8,8,16,0.95) 0%, transparent 100%);
+    z-index: 2;
+  }
+
+  .track-name {
+    font-size: 1.1rem; font-weight: 800;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .track-artist { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+
+  /* MAIN CONTROLS */
+  .controls-card {
+    grid-column: 2;
+    grid-row: 1;
+    padding: 1.5rem;
+  }
+
+  .progress-section { margin-bottom: 1.5rem; }
+
+  .time-row {
+    display: flex; justify-content: space-between;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .progress-wrap {
+    position: relative; height: 6px; border-radius: 3px;
+    background: var(--surface3);
+    cursor: pointer;
+  }
+  .progress-fill {
+    height: 100%; border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 0.1s;
+    position: relative;
+  }
+  .progress-fill::after {
+    content: '';
+    position: absolute; right: -6px; top: 50%; transform: translateY(-50%);
+    width: 12px; height: 12px; border-radius: 50%;
+    background: white;
+    box-shadow: 0 0 8px var(--glow);
+  }
+  .progress-wrap:hover .progress-fill::after { transform: translateY(-50%) scale(1.3); }
+
+  .ctrl-row {
+    display: flex; align-items: center; justify-content: center;
+    gap: 1rem; margin-bottom: 1.5rem;
+  }
+
+  .ctrl-btn {
+    background: none; border: none; cursor: pointer; color: var(--muted);
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; transition: all 0.2s;
+  }
+  .ctrl-btn:hover { color: var(--text); background: var(--surface2); }
+  .ctrl-btn.active { color: var(--accent); }
+
+  .play-btn {
+    width: 60px; height: 60px; font-size: 24px;
+    background: var(--accent);
+    color: white;
+    box-shadow: 0 0 30px var(--glow);
+  }
+  .play-btn:hover { background: #9a8dff; transform: scale(1.05); }
+
+  .vol-row {
+    display: flex; align-items: center; gap: 0.75rem;
+  }
+  .vol-icon { font-size: 16px; color: var(--muted); }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--surface3);
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  input[type=range]:hover::-webkit-slider-thumb { transform: scale(1.3); }
+  input[type=range]::-webkit-slider-runnable-track {
+    background: linear-gradient(90deg, var(--accent) 0%, var(--accent) var(--val, 70%), var(--surface3) var(--val, 70%));
+    border-radius: 2px;
+  }
+
+  /* EQUALIZER */
+  .eq-card {
+    grid-column: 2;
+    grid-row: 2;
+    padding: 1.5rem;
+  }
+
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .eq-grid {
+    display: flex; gap: 0.75rem; align-items: flex-end;
+    height: 100px;
+  }
+  .eq-band { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .eq-slider-wrap {
+    flex: 1; width: 100%; display: flex; align-items: center; justify-content: center;
+  }
+  .eq-slider {
+    writing-mode: vertical-lr;
+    direction: rtl;
+    width: 4px; height: 80px;
+    -webkit-appearance: none;
+    flex: none;
+    background: var(--surface3) !important;
+  }
+  .eq-slider::-webkit-slider-thumb {
+    width: 16px; height: 16px;
+  }
+  .eq-label { font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--muted); }
+
+  /* PLAYLIST */
+  .playlist-card {
+    grid-column: 1 / 3;
+    padding: 1.5rem;
+  }
+
+  .pl-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+
+  .pl-add-btn {
+    background: rgba(124,109,250,0.15);
+    color: var(--accent);
+    border: 1px solid rgba(124,109,250,0.3);
+    padding: 0.35rem 0.9rem;
+    border-radius: 50px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .pl-add-btn:hover { background: rgba(124,109,250,0.3); }
+
+  .playlist { max-height: 200px; overflow-y: auto; }
+  .playlist::-webkit-scrollbar { width: 4px; }
+  .playlist::-webkit-scrollbar-track { background: transparent; }
+  .playlist::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 2px; }
+
+  .pl-item {
+    display: flex; align-items: center; gap: 1rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .pl-item:hover { background: var(--surface2); }
+  .pl-item.active { background: rgba(124,109,250,0.12); }
+  .pl-item.active::before {
+    content: '';
+    position: absolute; left: 0; top: 20%; bottom: 20%;
+    width: 3px; border-radius: 2px;
+    background: var(--accent);
+  }
+
+  .pl-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem; color: var(--muted);
+    width: 20px; text-align: right;
+  }
+  .pl-item.active .pl-num { color: var(--accent); }
+
+  .pl-bars {
+    display: none; gap: 2px; align-items: flex-end; height: 14px;
+  }
+  .pl-item.active.playing .pl-num { display: none; }
+  .pl-item.active.playing .pl-bars { display: flex; }
+
+  .pl-bar {
+    width: 3px; background: var(--accent); border-radius: 1px;
+    animation: bar 0.8s ease-in-out infinite;
+  }
+  .pl-bar:nth-child(2) { animation-delay: 0.2s; }
+  .pl-bar:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bar {
+    0%, 100% { height: 4px; }
+    50% { height: 14px; }
+  }
+
+  .pl-title { flex: 1; font-size: 0.875rem; font-weight: 500; }
+  .pl-artist { font-size: 0.75rem; color: var(--muted); }
+  .pl-dur {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem; color: var(--muted);
+  }
+
+  .pl-empty {
+    text-align: center; padding: 2rem;
+    color: var(--muted); font-size: 0.85rem;
+  }
+
+  /* EXTRAS ROW */
+  .extras-row {
+    grid-column: 1 / 3;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+  }
+
+  .mini-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.25rem;
+  }
+
+  /* SPEED */
+  .speed-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.5rem; font-weight: 700;
+    color: var(--accent3);
+    margin-bottom: 0.5rem;
+  }
+
+  /* SLEEP TIMER */
+  .sleep-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.75rem; }
+  .sleep-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--muted); padding: 0.3rem 0.6rem;
+    border-radius: 6px; font-family: 'Syne', sans-serif;
+    font-size: 0.75rem; cursor: pointer; transition: all 0.2s;
+  }
+  .sleep-btn:hover { color: var(--text); border-color: var(--accent); }
+  .sleep-btn.active { background: rgba(124,109,250,0.2); color: var(--accent); border-color: var(--accent); }
+
+  .sleep-countdown {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.8rem; color: var(--accent2);
+    margin-top: 0.5rem; min-height: 1.2em;
+  }
+
+  /* EFFECTS */
+  .fx-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.75rem; }
+  .fx-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--muted); padding: 0.4rem 0.5rem;
+    border-radius: 8px; font-family: 'Syne', sans-serif;
+    font-size: 0.75rem; cursor: pointer; transition: all 0.2s;
+    display: flex; align-items: center; gap: 0.4rem;
+  }
+  .fx-btn:hover { color: var(--text); }
+  .fx-btn.active { background: rgba(124,109,250,0.2); color: var(--accent); border-color: var(--accent); }
+  .fx-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+
+
+  /* KEYBOARD SHORTCUTS */
+  .key-grid { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.75rem; }
+  .key-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: var(--muted); }
+  kbd {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 5px; padding: 2px 7px;
+    font-family: 'Space Mono', monospace; font-size: 0.65rem;
+    color: var(--accent);
+  }
+
+
+
+  .app-header {
+    grid-column: 1 / 3;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 0.25rem;
+  }
+  .app-logo {
+    display: flex; align-items: center; gap: 0.65rem;
+  }
+  .app-logo-svg {
+    width: 44px; height: 56px; flex-shrink: 0;
+  }
+  .app-logo-text {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.25rem; font-weight: 700;
+    letter-spacing: 0.18em;
+    background: linear-gradient(135deg, #7c6dfa 0%, #fa6d8f 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .app-logo-text em {
+    font-style: normal;
+    -webkit-text-fill-color: transparent;
+  }
+  .app-tagline { font-size: 0.75rem; color: var(--muted); }
+
+  [data-theme="chess"] .vinyl {
+    background: conic-gradient(#1a1208 0deg, #f5ead0 45deg, #1a1208 90deg, #f5ead0 135deg, #1a1208 180deg, #f5ead0 225deg, #1a1208 270deg, #f5ead0 315deg, #1a1208 360deg);
+    box-shadow: 0 0 40px rgba(212,160,23,0.4);
+  }
+  [data-theme="chess"] .vinyl-center { border-color: var(--accent); }
+  [data-theme="chess"] .progress-fill { background: linear-gradient(90deg, #d4a017, #c8522a); }
+  [data-theme="chess"] .app-logo-text { background: linear-gradient(135deg, #d4a017 0%, #c8522a 100%); -webkit-background-clip: text; background-clip: text; }
+  [data-theme="chess"] #video-fullscreen { box-shadow: 0 0 60px rgba(212,160,23,0.4); }
+  [data-theme="chess"] .video-circle-wrap { box-shadow: 0 0 0 3px var(--accent), 0 0 30px rgba(212,160,23,0.4); }
+
+  /* chess sakktábla minta a cover háttérnek */
+  [data-theme="chess"] .cover-art { background: repeating-conic-gradient(#2e2210 0% 25%, #3a2c18 0% 50%) 0 0 / 28px 28px; }
+
+  /* VIDEO KÖR */
+  .video-circle-wrap {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 3;
+    cursor: pointer;
+    border-radius: 50%;
+    overflow: hidden;
+    width: 148px; height: 148px;
+    box-shadow: 0 0 0 3px var(--accent), 0 0 30px rgba(124,109,250,0.5);
+    transition: box-shadow 0.3s, transform 0.2s;
+  }
+  .video-circle-wrap:hover {
+    box-shadow: 0 0 0 4px var(--accent2), 0 0 50px rgba(250,109,143,0.6);
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+  #video-thumb-canvas {
+    width: 100%; height: 100%;
+    display: block;
+    border-radius: 50%;
+  }
+  .video-circle-hint {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(8,8,16,0.55);
+    color: white;
+    font-size: 0.75rem;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 0.05em;
+    opacity: 0;
+    border-radius: 50%;
+    transition: opacity 0.2s;
+  }
+  .video-circle-wrap:hover .video-circle-hint { opacity: 1; }
+
+  /* VIDEO FULLSCREEN OVERLAY */
+  #video-overlay {
+    position: fixed; inset: 0; z-index: 999;
+    background: rgba(0,0,0,0.92);
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(8px);
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  #video-fullscreen {
+    max-width: 92vw; max-height: 88vh;
+    border-radius: 14px;
+    box-shadow: 0 0 60px rgba(124,109,250,0.4);
+    outline: none;
+  }
+  #video-overlay-close {
+    position: absolute; top: 1.5rem; right: 1.5rem;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white; font-size: 1.3rem;
+    width: 44px; height: 44px; border-radius: 50%;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  #video-overlay-close:hover { background: rgba(250,109,143,0.3); }
+
+  @media (max-width: 700px) {
+    .app { grid-template-columns: 1fr; }
+    .cover-card { grid-column: 1; grid-row: 1; aspect-ratio: 1; max-height: 280px; }
+    .controls-card { grid-column: 1; grid-row: 2; }
+    .eq-card { grid-column: 1; grid-row: 3; }
+    .playlist-card { grid-column: 1; grid-row: 4; }
+    .extras-row { grid-column: 1; grid-template-columns: 1fr; grid-row: 5; }
+    .app-header { grid-column: 1; }
+  }
+
+  /* ===== CLOUD FEATURES ===== */
+
+  /* Google sign-in bar */
+  .cloud-bar {
+    grid-column: 1 / 3;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 0.75rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .cloud-bar-left {
+    display: flex; align-items: center; gap: 0.75rem;
+  }
+  .cloud-user-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 2px solid var(--accent);
+    object-fit: cover;
+  }
+  .cloud-user-name {
+    font-size: 0.85rem; font-weight: 600;
+  }
+  .cloud-user-sub {
+    font-size: 0.7rem; color: var(--muted);
+    font-family: 'Space Mono', monospace;
+  }
+  .btn-google-signin {
+    display: flex; align-items: center; gap: 0.5rem;
+    background: white; color: #333;
+    border: none; border-radius: 8px;
+    padding: 0.5rem 1rem;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.85rem; font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .btn-google-signin:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,0.4); }
+  .btn-google-signout {
+    background: rgba(250,109,143,0.12);
+    color: var(--accent2);
+    border: 1px solid rgba(250,109,143,0.3);
+    border-radius: 8px; padding: 0.4rem 0.85rem;
+    font-family: 'Syne', sans-serif; font-size: 0.78rem;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .btn-google-signout:hover { background: rgba(250,109,143,0.25); }
+
+  /* Cloud upload button in playlist header */
+  .btn-cloud-upload {
+    background: linear-gradient(135deg, rgba(124,109,250,0.2), rgba(250,109,143,0.15));
+    color: var(--accent);
+    border: 1px solid rgba(124,109,250,0.4);
+    padding: 0.35rem 0.9rem;
+    border-radius: 50px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 0.35rem;
+  }
+  .btn-cloud-upload:hover { background: linear-gradient(135deg, rgba(124,109,250,0.35), rgba(250,109,143,0.25)); }
+  .btn-cloud-upload:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Playlist tabs */
+  .pl-tabs {
+    display: flex; gap: 0.35rem; margin-bottom: 0.85rem;
+  }
+  .pl-tab {
+    background: none; border: 1px solid var(--border);
+    border-radius: 50px; padding: 0.3rem 0.85rem;
+    font-family: 'Space Mono', monospace; font-size: 0.65rem;
+    letter-spacing: 0.08em; color: var(--muted);
+    cursor: pointer; transition: all 0.2s;
+    text-transform: uppercase;
+  }
+  .pl-tab.active {
+    background: var(--accent); border-color: var(--accent);
+    color: white;
+  }
+  .pl-tab:not(.active):hover { color: var(--text); border-color: var(--accent); }
+
+  /* Cloud playlist items */
+  .pl-item-cloud {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .pl-item-cloud:hover { background: var(--surface2); }
+  .pl-item-cloud:last-child { border-bottom: none; }
+  .cloud-item-icon {
+    font-size: 1.1rem; width: 28px; text-align: center; flex-shrink: 0;
+  }
+  .cloud-item-info { flex: 1; min-width: 0; }
+  .cloud-item-name {
+    font-size: 0.85rem; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .cloud-item-meta {
+    font-size: 0.7rem; color: var(--muted);
+    font-family: 'Space Mono', monospace; margin-top: 1px;
+  }
+  .cloud-item-play {
+    background: var(--accent); color: white;
+    border: none; border-radius: 50%;
+    width: 30px; height: 30px; font-size: 11px;
+    cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .cloud-item-play:hover { transform: scale(1.1); background: #9a8dff; }
+  .cloud-item-play:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* Report (feljelentés) button */
+  .cloud-item-report {
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 50%;
+    width: 26px; height: 26px; font-size: 12px;
+    cursor: pointer; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s; margin-left: -4px;
+  }
+  .cloud-item-report:hover { color: #ff6b6b; border-color: #ff6b6b; transform: scale(1.1); }
+  .cloud-item-report.reported { color: #ff6b6b; border-color: #ff6b6b; opacity: 0.6; }
+
+  /* Report modal */
+  .report-modal-overlay {
+    position: fixed; inset: 0; z-index: 300;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn 0.2s ease;
+  }
+  .report-modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2rem;
+    width: 400px; max-width: 94vw;
+    position: relative;
+  }
+  .report-modal-title {
+    font-size: 1.05rem; font-weight: 800; margin-bottom: 0.2rem;
+    color: #ff6b6b;
+  }
+  .report-modal-song {
+    font-size: 0.78rem; color: var(--muted);
+    font-family: 'Space Mono', monospace; margin-bottom: 1.4rem;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .report-reason-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 0.5rem; margin-bottom: 1rem;
+  }
+  .report-reason-btn {
+    background: var(--surface2); border: 1.5px solid var(--border);
+    border-radius: 10px; color: var(--text);
+    font-family: 'Syne', sans-serif; font-size: 0.78rem;
+    padding: 0.5rem 0.4rem; cursor: pointer; text-align: center;
+    transition: all 0.18s;
+  }
+  .report-reason-btn:hover,
+  .report-reason-btn.selected { border-color: #ff6b6b; color: #ff6b6b; background: rgba(255,107,107,0.08); }
+  .btn-report-submit {
+    width: 100%; padding: 0.75rem;
+    background: #ff6b6b; color: white;
+    border: none; border-radius: 12px;
+    font-family: 'Syne', sans-serif; font-size: 0.9rem; font-weight: 700;
+    cursor: pointer; transition: all 0.2s; margin-top: 0.5rem;
+  }
+  .btn-report-submit:hover { background: #ff4f4f; transform: translateY(-1px); }
+  .btn-report-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .report-status {
+    margin-top: 0.65rem; font-size: 0.78rem;
+    font-family: 'Space Mono', monospace;
+    text-align: center; min-height: 1.2em;
+  }
+  .report-status.ok { color: var(--accent3); }
+  .report-status.err { color: #ff6b6b; }
+
+  /* Upload modal */
+  .cloud-modal-overlay {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.75);
+    backdrop-filter: blur(6px);
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn 0.2s ease;
+  }
+  .cloud-modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 2rem;
+    width: 420px; max-width: 94vw;
+    position: relative;
+  }
+  .cloud-modal-title {
+    font-size: 1.1rem; font-weight: 800; margin-bottom: 0.3rem;
+  }
+  .cloud-modal-sub {
+    font-size: 0.78rem; color: var(--muted); margin-bottom: 1.5rem;
+    font-family: 'Space Mono', monospace;
+  }
+  .cloud-modal-close {
+    position: absolute; top: 1rem; right: 1rem;
+    background: var(--surface2); border: none; color: var(--muted);
+    width: 32px; height: 32px; border-radius: 50%;
+    cursor: pointer; font-size: 1rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .cloud-modal-close:hover { color: var(--text); }
+
+  .cloud-form-row { margin-bottom: 1rem; }
+  .cloud-form-label {
+    display: block; font-size: 0.7rem; font-family: 'Space Mono', monospace;
+    letter-spacing: 0.1em; color: var(--accent); text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+  .cloud-form-input {
+    width: 100%; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 0.6rem 0.85rem; color: var(--text);
+    font-family: 'Syne', sans-serif; font-size: 0.88rem;
+    outline: none; transition: border-color 0.2s;
+  }
+  .cloud-form-input:focus { border-color: var(--accent); }
+  .cloud-form-select {
+    width: 100%; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 0.6rem 0.85rem; color: var(--text);
+    font-family: 'Syne', sans-serif; font-size: 0.88rem;
+    outline: none; cursor: pointer;
+  }
+
+  /* Progress bar for upload */
+  .cloud-progress-wrap {
+    background: var(--surface3); border-radius: 4px; height: 6px;
+    margin: 1rem 0 0.4rem; overflow: hidden; display: none;
+  }
+  .cloud-progress-fill {
+    height: 100%; border-radius: 4px; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 0.3s;
+  }
+  .cloud-progress-label {
+    font-size: 0.72rem; color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    text-align: center; display: none;
+  }
+
+  .btn-cloud-submit {
+    width: 100%; margin-top: 1.25rem;
+    background: var(--accent); color: white;
+    border: none; border-radius: 12px;
+    padding: 0.8rem; font-family: 'Syne', sans-serif;
+    font-size: 0.95rem; font-weight: 700;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .btn-cloud-submit:hover { background: #9a8dff; transform: translateY(-1px); }
+  .btn-cloud-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .cloud-status-msg {
+    margin-top: 0.75rem; font-size: 0.8rem;
+    font-family: 'Space Mono', monospace;
+    text-align: center; min-height: 1.2em;
+  }
+  .cloud-status-msg.ok { color: var(--accent3); }
+  .cloud-status-msg.err { color: var(--accent2); }
+
+  /* Upload screen cloud button */
+  .btn-cloud-browse {
+    background: transparent;
+    color: var(--accent3);
+    border: 1.5px solid rgba(109,250,204,0.4);
+    padding: 0.75rem 2rem;
+    border-radius: 50px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem; font-weight: 600;
+    cursor: pointer; transition: all 0.2s; margin-top: 0.5rem;
+  }
+  .btn-cloud-browse:hover { background: rgba(109,250,204,0.08); border-color: var(--accent3); transform: translateY(-2px); }
+
+  /* ===== KERESŐMODUL ===== */
+  .search-wrap {
+    display: flex; align-items: center;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    padding: 0 0.5rem 0 0.75rem;
+    gap: 0.35rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    height: 32px;
+  }
+  .search-wrap:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--glow);
+  }
+  .search-icon { font-size: 0.8rem; flex-shrink: 0; opacity: 0.6; }
+  .search-input {
+    background: none;
+    border: none;
+    outline: none;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.8rem;
+    color: var(--text);
+    width: 120px;
+    transition: width 0.2s;
+  }
+  .search-input::placeholder { color: var(--muted); }
+  .search-wrap:focus-within .search-input { width: 150px; }
+  .search-clear {
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); font-size: 0.75rem;
+    width: 18px; height: 18px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; flex-shrink: 0; padding: 0;
+    opacity: 0; pointer-events: none;
+  }
+  .search-clear.visible { opacity: 1; pointer-events: auto; }
+  .search-clear:hover { background: var(--surface3); color: var(--accent2); }
+  .pl-item.search-hidden, .pl-item-cloud.search-hidden { display: none !important; }
+  .search-no-results {
+    text-align: center; padding: 1.5rem 1rem;
+    color: var(--muted); font-size: 0.82rem;
+    font-family: 'Space Mono', monospace;
+    display: none;
+  }
+  .search-no-results.visible { display: block; }
+  /* ===== KERESŐMODUL VÉGE ===== */
+
+  /* Cloud loading state */
+  .cloud-loading {
+    text-align: center; padding: 2rem 1rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace; font-size: 0.78rem;
+  }
+  .cloud-spinner {
+    display: inline-block; width: 24px; height: 24px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 0.75rem;
+  }
+  .pl-empty-cloud {
+    text-align: center; padding: 2rem 1rem;
+    color: var(--muted); font-size: 0.85rem;
+  }
+
+  /* ===== ADMIN ===== */
+  .admin-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(10px);
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn 0.2s ease;
+  }
+  .admin-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 2.5rem 2rem;
+    width: 360px; max-width: 94vw;
+    position: relative;
+  }
+  .admin-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem; letter-spacing: 0.25em;
+    color: var(--accent); text-transform: uppercase;
+    margin-bottom: 0.3rem;
+  }
+  .admin-subtitle {
+    font-size: 1.2rem; font-weight: 800; margin-bottom: 2rem;
+  }
+  .admin-field {
+    display: flex; flex-direction: column; gap: 0.4rem;
+    margin-bottom: 1rem;
+  }
+  .admin-field label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.62rem; letter-spacing: 0.12em;
+    color: var(--muted); text-transform: uppercase;
+  }
+  .admin-input {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.65rem 0.9rem;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem; color: var(--text);
+    outline: none; transition: border-color 0.2s;
+    width: 100%;
+  }
+  .admin-input:focus { border-color: var(--accent); }
+  .admin-err {
+    font-size: 0.78rem; color: var(--accent2);
+    font-family: 'Space Mono', monospace;
+    min-height: 1.2em; margin-bottom: 0.5rem;
+    text-align: center;
+  }
+  .admin-btn {
+    width: 100%; background: var(--accent); color: white;
+    border: none; border-radius: 10px;
+    padding: 0.75rem; font-family: 'Syne', sans-serif;
+    font-size: 0.95rem; font-weight: 700;
+    cursor: pointer; transition: all 0.2s;
+    margin-top: 0.25rem;
+  }
+  .admin-btn:hover { background: #9a8dff; transform: translateY(-1px); }
+  .admin-close {
+    position: absolute; top: 1rem; right: 1rem;
+    background: none; border: none; color: var(--muted);
+    font-size: 1.1rem; cursor: pointer; transition: color 0.2s;
+  }
+  .admin-close:hover { color: var(--text); }
+
+  /* Admin panel (belépés utáni tartalom) */
+  .admin-panel-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: var(--bg);
+    overflow-y: auto;
+    animation: fadeIn 0.2s ease;
+  }
+  .admin-panel {
+    max-width: 800px; margin: 0 auto;
+    padding: 2rem;
+  }
+  .admin-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
+  }
+  .admin-panel-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 0.2em;
+    color: var(--accent); text-transform: uppercase;
+  }
+  .admin-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .admin-section-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.62rem; letter-spacing: 0.15em;
+    color: var(--accent); text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+  .admin-song-row {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.6rem 0.5rem; border-radius: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 0.85rem;
+  }
+  .admin-song-row:last-child { border-bottom: none; }
+  .admin-song-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .admin-song-meta { font-size: 0.7rem; color: var(--muted); font-family: 'Space Mono', monospace; flex-shrink: 0; }
+  .admin-del-btn {
+    background: rgba(250,109,143,0.12); color: var(--accent2);
+    border: 1px solid rgba(250,109,143,0.3);
+    border-radius: 6px; padding: 0.25rem 0.6rem;
+    font-size: 0.75rem; cursor: pointer;
+    transition: all 0.2s; flex-shrink: 0;
+  }
+  .admin-del-btn:hover { background: rgba(250,109,143,0.3); }
+  .admin-stat-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;
+  }
+  .admin-stat {
+    background: var(--surface2); border-radius: 12px;
+    padding: 1rem; text-align: center;
+  }
+  .admin-stat-val {
+    font-size: 1.8rem; font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .admin-stat-label {
+    font-size: 0.7rem; color: var(--muted);
+    font-family: 'Space Mono', monospace; margin-top: 0.25rem;
+  }
+  /* ===== ADMIN VÉGE ===== */
+</style>
+</head>
+<body>
+
+<div class="noise"></div>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<!-- ADMIN LOGIN -->
+<div class="admin-overlay" id="admin-login-overlay" style="display:none;">
+  <div class="admin-box">
+    <button class="admin-close" onclick="closeAdminLogin()">✕</button>
+    <div class="admin-title">⚙ Sonic Player</div>
+    <div class="admin-subtitle">Admin belépés</div>
+    <div class="admin-field">
+      <label>Felhasználónév</label>
+      <input class="admin-input" id="admin-user-input" type="text" autocomplete="off" placeholder="felhasználónév">
+    </div>
+    <div class="admin-field">
+      <label>Jelszó</label>
+      <input class="admin-input" id="admin-pass-input" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')adminLogin()">
+    </div>
+    <div class="admin-err" id="admin-err"></div>
+    <button class="admin-btn" onclick="adminLogin()">Belépés</button>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="admin-panel-overlay" id="admin-panel-overlay" style="display:none;">
+  <div class="admin-panel">
+    <div class="admin-panel-header">
+      <div>
+        <div class="admin-panel-title">⚙ Admin Panel</div>
+        <div style="font-size:1.1rem;font-weight:800;margin-top:0.2rem;">SONIC vezérlőpult</div>
+      </div>
+      <button class="admin-btn" style="width:auto;padding:0.5rem 1.2rem;" onclick="closeAdminPanel()">✕ Kilépés</button>
+    </div>
+
+    <!-- Statisztikák -->
+    <div class="admin-section">
+      <div class="admin-section-title">📊 Statisztikák</div>
+      <div class="admin-stat-grid">
+        <div class="admin-stat">
+          <div class="admin-stat-val" id="admin-stat-songs">—</div>
+          <div class="admin-stat-label">Dal a cloudban</div>
+        </div>
+        <div class="admin-stat">
+          <div class="admin-stat-val" id="admin-stat-reports">—</div>
+          <div class="admin-stat-label">Feljelentés</div>
+        </div>
+        <div class="admin-stat">
+          <div class="admin-stat-val" id="admin-stat-flagged">—</div>
+          <div class="admin-stat-label">Flagelt dal</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dal törlés -->
+    <div class="admin-section">
+      <div class="admin-section-title">🗑 Cloud dalok kezelése</div>
+      <div id="admin-song-list"><div style="color:var(--muted);font-size:0.85rem;">Betöltés...</div></div>
+    </div>
+
+    <!-- Feljelentések -->
+    <div class="admin-section">
+      <div class="admin-section-title">🚩 Feljelentések</div>
+      <div id="admin-report-list"><div style="color:var(--muted);font-size:0.85rem;">Betöltés...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- UPLOAD SCREEN -->
+<div class="upload-screen" id="upload-screen">
+  <div class="upload-logo">
+    <svg width="32" height="42" viewBox="0 0 44 56" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="ulg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#7c6dfa"/>
+          <stop offset="100%" stop-color="#fa6d8f"/>
+        </linearGradient>
+      </defs>
+      <path d="M3 12 L11 12 L20 4 L20 32 L11 24 L3 24 Z" fill="url(#ulg)"/>
+      <path d="M20 10 Q27 14 27 18 Q27 22 20 26" fill="none" stroke="url(#ulg)" stroke-width="2" stroke-linecap="round"/>
+      <path d="M20 6 Q31 11 31 18 Q31 25 20 30" fill="none" stroke="url(#ulg)" stroke-width="1.2" stroke-linecap="round" opacity="0.45"/>
+      <ellipse cx="12" cy="44" rx="8" ry="6.5" fill="#1a1a2e" stroke="url(#ulg)" stroke-width="1.2"/>
+      <circle cx="12" cy="35" r="7" fill="#1a1a2e" stroke="url(#ulg)" stroke-width="1.2"/>
+      <polygon points="7,30 4,23 10,28" fill="#7c6dfa"/>
+      <polygon points="17,30 20,23 14,28" fill="#fa6d8f"/>
+      <ellipse cx="9.5" cy="34" rx="2" ry="2.3" fill="url(#ulg)"/>
+      <ellipse cx="14.5" cy="34" rx="2" ry="2.3" fill="url(#ulg)"/>
+      <ellipse cx="9.5" cy="34.5" rx="0.9" ry="1.8" fill="#080810"/>
+      <ellipse cx="14.5" cy="34.5" rx="0.9" ry="1.8" fill="#080810"/>
+      <circle cx="10" cy="33.2" r="0.7" fill="white" opacity="0.9"/>
+      <circle cx="15" cy="33.2" r="0.7" fill="white" opacity="0.9"/>
+      <polygon points="12,37.5 10.8,38.8 13.2,38.8" fill="#fa6d8f"/>
+      <path d="M10.8,38.8 Q12,40.5 13.2,38.8" fill="none" stroke="#fa6d8f" stroke-width="0.8" stroke-linecap="round"/>
+      <line x1="4" y1="38" x2="10" y2="38.5" stroke="#7c6dfa" stroke-width="0.8" opacity="0.9"/>
+      <line x1="4" y1="39.5" x2="10" y2="39.5" stroke="#7c6dfa" stroke-width="0.8" opacity="0.9"/>
+      <line x1="20" y1="38" x2="14" y2="38.5" stroke="#fa6d8f" stroke-width="0.8" opacity="0.9"/>
+      <line x1="20" y1="39.5" x2="14" y2="39.5" stroke="#fa6d8f" stroke-width="0.8" opacity="0.9"/>
+      <ellipse cx="6" cy="49.5" rx="4" ry="3" fill="#1a1a2e" stroke="url(#ulg)" stroke-width="1"/>
+      <ellipse cx="18" cy="49.5" rx="4" ry="3" fill="#1a1a2e" stroke="url(#ulg)" stroke-width="1"/>
+      <path d="M20 46 Q32 42 33 50 Q34 56 26 55" fill="none" stroke="url(#ulg)" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <span class="upload-logo-text">◈ Sonic Player</span>
+  </div>
+  <div class="upload-box" id="drop-zone">
+    <div class="upload-icon">🎵</div>
+    <div class="upload-title">Zenefájlok betöltése</div>
+    <div class="upload-sub">MP3, WAV, FLAC, OGG, AAC, MP4, WEBM — húzd ide, válassz fájlokat vagy nyiss meg egy mappát</div>
+    <div class="upload-btn-row">
+      <button class="btn-upload" onclick="document.getElementById('file-input').click()">🎵 Fájlok kiválasztása</button>
+      <button class="btn-upload-folder" onclick="document.getElementById('folder-input').click()">📁 Mappa megnyitása</button>
+    </div>
+  </div>
+  <input type="file" id="file-input" accept="audio/*,video/*" multiple>
+  <input type="file" id="folder-input" accept="audio/*,video/*" webkitdirectory multiple>
+  <p style="margin-top:1.5rem; font-size:0.8rem; color:#7a7a9a;">Vagy böngéssz a közösségi felhőből:</p>
+  <button class="btn-cloud-browse" onclick="openFromCloud()">☁ Cloud Playlist megnyitása</button>
+  <p style="margin-top:0.75rem; font-size:0.75rem; color:#555;">Helyi fájlok: csak nálad futnak, semmi sem kerül fel szerverre</p>
+</div>
+
+<!-- CLOUD UPLOAD MODAL -->
+<div class="cloud-modal-overlay" id="cloud-modal" style="display:none;">
+  <div class="cloud-modal">
+    <button class="cloud-modal-close" onclick="closeCloudModal()">✕</button>
+    <div class="cloud-modal-title">☁ Feltöltés a felhőbe</div>
+    <div class="cloud-modal-sub">A fájl Google Drive-ra kerül, a metaadatok a közösségi Sheets-be</div>
+
+    <div class="cloud-form-row">
+      <label class="cloud-form-label">Kiválasztott fájl</label>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <input class="cloud-form-input" id="cloud-file-name" readonly placeholder="Válassz fájlt a listából..." style="flex:1;">
+        <button class="pl-add-btn" onclick="pickFileForCloud()" style="white-space:nowrap;">Tallóz</button>
+      </div>
+      <input type="file" id="cloud-file-input" accept="audio/*,video/*" style="display:none;" onchange="onCloudFileChosen(this)">
+    </div>
+
+    <div class="cloud-form-row">
+      <label class="cloud-form-label">Megjelenítési név</label>
+      <input class="cloud-form-input" id="cloud-item-name" placeholder="pl. Sela baba u balon">
+    </div>
+
+    <div class="cloud-form-row">
+      <label class="cloud-form-label">Típus</label>
+      <select class="cloud-form-select" id="cloud-item-type">
+        <option value="Music">🎵 Music</option>
+        <option value="Video">🎬 Video</option>
+      </select>
+    </div>
+
+    <div class="cloud-form-row">
+      <label class="cloud-form-label">Feltöltő neve (nem kötelező)</label>
+      <input class="cloud-form-input" id="cloud-uploader-name" placeholder="pl. Dávid">
+    </div>
+
+    <div class="cloud-form-row">
+      <label class="cloud-form-label">Megjegyzés (nem kötelező)</label>
+      <input class="cloud-form-input" id="cloud-notes" placeholder="Bármilyen megjegyzés...">
+    </div>
+
+    <div class="cloud-progress-wrap" id="cloud-progress-wrap">
+      <div class="cloud-progress-fill" id="cloud-progress-fill"></div>
+    </div>
+    <div class="cloud-progress-label" id="cloud-progress-label"></div>
+
+    <button class="btn-cloud-submit" id="cloud-submit-btn" onclick="submitToCloud()">☁ Feltöltés Drive-ra + Sheets-be</button>
+    <div class="cloud-status-msg" id="cloud-status"></div>
+  </div>
+</div>
+
+<!-- REPORT MODAL -->
+<div class="report-modal-overlay" id="report-modal" style="display:none;">
+  <div class="report-modal">
+    <button class="cloud-modal-close" onclick="closeReportModal()">✕</button>
+    <div class="report-modal-title">🚩 Dal feljelentése</div>
+    <div class="report-modal-song" id="report-modal-song">—</div>
+
+    <div style="font-size:0.75rem;color:var(--muted);font-family:'Space Mono',monospace;margin-bottom:0.6rem;text-transform:uppercase;letter-spacing:0.08em;">Ok kiválasztása</div>
+    <div class="report-reason-grid" id="report-reason-grid">
+      <button class="report-reason-btn" onclick="selectReportReason(this, 'Szerzői jogi sértés')">⚖️ Szerzői jog</button>
+      <button class="report-reason-btn" onclick="selectReportReason(this, 'Nem zene / nem ideillő tartalom')">🚫 Nem ideillő</button>
+      <button class="report-reason-btn" onclick="selectReportReason(this, 'Duplikált tartalom')">♻️ Duplikátum</button>
+      <button class="report-reason-btn" onclick="selectReportReason(this, 'Nem működik / hibás fájl')">🔇 Nem működik</button>
+      <button class="report-reason-btn" onclick="selectReportReason(this, 'Sértő / bántó tartalom')">😡 Sértő</button>
+      <button class="report-reason-btn" onclick="selectReportReason(this, 'Egyéb')">💬 Egyéb</button>
+    </div>
+
+    <div class="cloud-form-row">
+      <label class="cloud-form-label">Megjegyzés (opcionális)</label>
+      <input class="cloud-form-input" id="report-note" placeholder="Részletek...">
+    </div>
+
+    <button class="btn-report-submit" id="report-submit-btn" onclick="submitReport()">🚩 Feljelentés küldése</button>
+    <div class="report-status" id="report-status"></div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div class="app" id="main-app" style="display:none;">
+
+  <!-- CLOUD / GOOGLE BAR -->
+  <div class="cloud-bar" id="cloud-bar">
+    <div class="cloud-bar-left" id="cloud-bar-left">
+      <!-- signed out state -->
+      <div id="cloud-signed-out" style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:0.85rem;font-weight:600;">☁ SONIC Cloud</div>
+          <div style="font-size:0.7rem;color:var(--muted);font-family:'Space Mono',monospace;">Jelentkezz be a közösségi playlisthez</div>
+        </div>
+        <button class="btn-google-signin" id="btn-google-signin" onclick="startGoogleSignIn()">
+          <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Bejelentkezés Google-lel
+        </button>
+      </div>
+      <!-- signed in state -->
+      <div id="cloud-signed-in" style="display:none;align-items:center;gap:0.75rem;">
+        <img class="cloud-user-avatar" id="cloud-avatar" src="" alt="">
+        <div>
+          <div class="cloud-user-name" id="cloud-user-name">—</div>
+          <div class="cloud-user-sub" id="cloud-user-email">—</div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:0.5rem;">
+      <button class="btn-cloud-upload" id="btn-open-upload-modal" onclick="openCloudModal()" style="display:none;" title="Aktív dal feltöltése a felhőbe">
+        ☁ Feltöltés
+      </button>
+      <button class="btn-google-signout" id="btn-signout" onclick="googleSignOut()" style="display:none;">Kijelentkezés</button>
+    </div>
+  </div>
+
+  <div class="app-header">
+    <div class="app-logo">
+      <svg class="app-logo-svg" id="header-logo" viewBox="0 0 44 56" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#7c6dfa"/>
+            <stop offset="100%" stop-color="#fa6d8f"/>
+          </linearGradient>
+        </defs>
+        <!-- hangszóró test -->
+        <path d="M3 12 L11 12 L20 4 L20 32 L11 24 L3 24 Z" fill="url(#lg)"/>
+        <!-- hanghullámok -->
+        <path d="M20 10 Q27 14 27 18 Q27 22 20 26" fill="none" stroke="url(#lg)" stroke-width="2" stroke-linecap="round"/>
+        <path d="M20 6 Q31 11 31 18 Q31 25 20 30" fill="none" stroke="url(#lg)" stroke-width="1.2" stroke-linecap="round" opacity="0.45"/>
+        <!-- macska test -->
+        <ellipse cx="12" cy="44" rx="8" ry="6.5" fill="#1a1a2e" stroke="url(#lg)" stroke-width="1.2"/>
+        <circle cx="12" cy="35" r="7" fill="#1a1a2e" stroke="url(#lg)" stroke-width="1.2"/>
+        <polygon points="7,30 4,23 10,28" fill="#7c6dfa"/>
+        <polygon points="17,30 20,23 14,28" fill="#fa6d8f"/>
+        <ellipse cx="9.5" cy="34" rx="2" ry="2.3" fill="url(#lg)"/>
+        <ellipse cx="14.5" cy="34" rx="2" ry="2.3" fill="url(#lg)"/>
+        <ellipse cx="9.5" cy="34.5" rx="0.9" ry="1.8" fill="#080810"/>
+        <ellipse cx="14.5" cy="34.5" rx="0.9" ry="1.8" fill="#080810"/>
+        <circle cx="10" cy="33.2" r="0.7" fill="white" opacity="0.9"/>
+        <circle cx="15" cy="33.2" r="0.7" fill="white" opacity="0.9"/>
+        <polygon points="12,37.5 10.8,38.8 13.2,38.8" fill="#fa6d8f"/>
+        <path d="M10.8,38.8 Q12,40.5 13.2,38.8" fill="none" stroke="#fa6d8f" stroke-width="0.8" stroke-linecap="round"/>
+        <line x1="4" y1="38" x2="10" y2="38.5" stroke="#7c6dfa" stroke-width="0.8" opacity="0.9"/>
+        <line x1="4" y1="39.5" x2="10" y2="39.5" stroke="#7c6dfa" stroke-width="0.8" opacity="0.9"/>
+        <line x1="20" y1="38" x2="14" y2="38.5" stroke="#fa6d8f" stroke-width="0.8" opacity="0.9"/>
+        <line x1="20" y1="39.5" x2="14" y2="39.5" stroke="#fa6d8f" stroke-width="0.8" opacity="0.9"/>
+        <ellipse cx="6" cy="49.5" rx="4" ry="3" fill="#1a1a2e" stroke="url(#lg)" stroke-width="1"/>
+        <ellipse cx="18" cy="49.5" rx="4" ry="3" fill="#1a1a2e" stroke="url(#lg)" stroke-width="1"/>
+        <line x1="3.5" y1="51" x2="3.5" y2="53" stroke="#7c6dfa" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="6" y1="51.5" x2="6" y2="53.5" stroke="#7c6dfa" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="8.5" y1="51" x2="8.5" y2="53" stroke="#7c6dfa" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="15.5" y1="51" x2="15.5" y2="53" stroke="#fa6d8f" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="18" y1="51.5" x2="18" y2="53.5" stroke="#fa6d8f" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="20.5" y1="51" x2="20.5" y2="53" stroke="#fa6d8f" stroke-width="1.2" stroke-linecap="round"/>
+        <path d="M20 46 Q32 42 33 50 Q34 56 26 55" fill="none" stroke="url(#lg)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <span class="app-logo-text">SONIC</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <div class="theme-switcher">
+        <button class="theme-btn active" id="theme-sonic" onclick="setTheme('sonic')">🎵 SONIC</button>
+        <button class="theme-btn" id="theme-chess" onclick="setTheme('chess')">♟ CHESS</button>
+      </div>
+      <div class="app-tagline">Fejlett zenei lejátszó</div>
+    </div>
+  </div>
+
+  <!-- COVER -->
+  <div class="card cover-card">
+    <div class="cover-art" id="cover-art">
+      <canvas id="cover-canvas"></canvas>
+      <div class="cover-placeholder" id="cover-placeholder">
+        <div class="vinyl" id="vinyl">
+          <div class="vinyl-center"></div>
+        </div>
+      </div>
+      <!-- Video thumbnail (kör alakban) -->
+      <div class="video-circle-wrap" id="video-circle-wrap" style="display:none;" onclick="openVideoFullscreen()">
+        <canvas id="video-thumb-canvas"></canvas>
+        <div class="video-circle-hint">▶ teljes méret</div>
+      </div>
+    </div>
+    <div class="cover-info">
+      <div class="track-name" id="track-name">—</div>
+      <div class="track-artist" id="track-artist">Ismeretlen előadó</div>
+    </div>
+  </div>
+
+  <!-- VIDEO FULLSCREEN OVERLAY -->
+  <div id="video-overlay" style="display:none;">
+    <video id="video-fullscreen" controls></video>
+    <button id="video-overlay-close" onclick="closeVideoFullscreen()">✕</button>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="card controls-card">
+    <div class="section-label">Lejátszó</div>
+    <div class="progress-section">
+      <div class="time-row">
+        <span id="cur-time">0:00</span>
+        <span id="tot-time">0:00</span>
+      </div>
+      <div class="progress-wrap" id="progress-bar">
+        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+    </div>
+    <div class="ctrl-row">
+      <button class="ctrl-btn" id="btn-shuffle" title="Véletlenszerű (S)" onclick="toggleShuffle()">🔀</button>
+      <button class="ctrl-btn" onclick="prevTrack()" title="Előző (←)">⏮</button>
+      <button class="ctrl-btn play-btn" id="play-btn" onclick="togglePlay()" title="Le/Megállít (Szóköz)">▶</button>
+      <button class="ctrl-btn" onclick="nextTrack()" title="Következő (→)">⏭</button>
+      <button class="ctrl-btn" id="btn-repeat" title="Ismétlés (R)" onclick="toggleRepeat()">🔁</button>
+    </div>
+    <div class="vol-row">
+      <span class="vol-icon" id="vol-icon" onclick="toggleMute()" style="cursor:pointer">🔊</span>
+      <input type="range" id="vol-slider" min="0" max="100" value="80" oninput="setVolume(this.value)">
+      <span style="font-family:'Space Mono',monospace;font-size:0.7rem;color:var(--muted);width:28px;text-align:right;" id="vol-val">80</span>
+    </div>
+  </div>
+
+  <!-- EQ -->
+  <div class="card eq-card">
+    <div class="section-label">Ekvalizátor</div>
+    <div class="eq-grid" id="eq-grid"></div>
+  </div>
+
+  <!-- PLAYLIST -->
+  <div class="card playlist-card">
+    <div class="pl-tabs">
+      <button class="pl-tab active" id="tab-local" onclick="switchTab('local')">💾 Helyi</button>
+      <button class="pl-tab" id="tab-cloud" onclick="switchTab('cloud')">☁ Cloud</button>
+    </div>
+
+    <!-- LOCAL tab -->
+    <div id="panel-local">
+      <div class="pl-header">
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <div class="section-label" style="margin:0">Lejátszólista (<span id="pl-count">0</span> dal)</div>
+          <div style="font-family:'Space Mono',monospace;font-size:0.68rem;color:var(--muted);" id="pl-total-dur">összesen: —</div>
+        </div>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <button class="pl-add-btn" onclick="document.getElementById('file-input').click()">+ Fájlok</button>
+          <button class="pl-add-btn" onclick="document.getElementById('folder-input').click()">📁 Mappa</button>
+          <div class="search-wrap" id="search-wrap-local">
+            <span class="search-icon">🔍</span>
+            <input class="search-input" id="local-search" type="text" placeholder="Keresés..." oninput="filterPlaylist('local', this.value)" autocomplete="off">
+            <button class="search-clear" id="local-search-clear" onclick="clearSearch('local')" title="Törlés">✕</button>
+          </div>
+        </div>
+      </div>
+      <div class="playlist" id="playlist">
+        <div class="pl-empty">Még nincsenek dalok</div>
+      </div>
+      <div class="search-no-results" id="local-no-results">🔍 Nincs találat</div>
+    </div>
+
+    <!-- CLOUD tab -->
+    <div id="panel-cloud" style="display:none;">
+      <div class="pl-header">
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <div class="section-label" style="margin:0">☁ Közösségi Cloud (<span id="cloud-pl-count">—</span>)</div>
+          <div style="font-family:'Space Mono',monospace;font-size:0.68rem;color:var(--muted);" id="cloud-pl-sub">Google Drive + Sheets</div>
+        </div>
+        <div style="display:flex;gap:0.5rem;align-items:center;">
+          <button class="pl-add-btn" onclick="refreshCloudPlaylist()" title="Frissítés">↻ Frissítés</button>
+          <div class="search-wrap" id="search-wrap-cloud">
+            <span class="search-icon">🔍</span>
+            <input class="search-input" id="cloud-search" type="text" placeholder="Keresés..." oninput="filterPlaylist('cloud', this.value)" autocomplete="off">
+            <button class="search-clear" id="cloud-search-clear" onclick="clearSearch('cloud')" title="Törlés">✕</button>
+          </div>
+        </div>
+      </div>
+      <div class="playlist" id="cloud-playlist">
+        <div class="pl-empty-cloud">
+          <div>Jelentkezz be a cloud playlist megtekintéséhez</div>
+        </div>
+      </div>
+      <div class="search-no-results" id="cloud-no-results">🔍 Nincs találat</div>
+    </div>
+  </div>
+
+  <!-- EXTRAS -->
+  <div class="extras-row">
+    <!-- Lejátszási sebesség -->
+    <div class="mini-card">
+      <div class="section-label">Sebesség</div>
+      <div class="speed-val" id="speed-val">1.0×</div>
+      <input type="range" id="speed-slider" min="25" max="200" value="100" step="5" oninput="setSpeed(this.value)">
+      <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:var(--muted);margin-top:4px;font-family:'Space Mono',monospace;">
+        <span>0.25×</span><span>1.0×</span><span>2.0×</span>
+      </div>
+    </div>
+
+    <!-- Elalvás időzítő -->
+    <div class="mini-card">
+      <div class="section-label">Elalvás időzítő</div>
+      <div class="sleep-btns">
+        <button class="sleep-btn" onclick="setSleep(5)">5p</button>
+        <button class="sleep-btn" onclick="setSleep(15)">15p</button>
+        <button class="sleep-btn" onclick="setSleep(30)">30p</button>
+        <button class="sleep-btn" onclick="setSleep(60)">1ó</button>
+        <button class="sleep-btn" onclick="setSleep(0)">Ki</button>
+      </div>
+      <div class="sleep-countdown" id="sleep-countdown"></div>
+    </div>
+
+    <!-- Hangeffektek -->
+    <div class="mini-card">
+      <div class="section-label">Hangeffektek</div>
+      <div class="fx-grid">
+        <button class="fx-btn" id="fx-bass" onclick="toggleFx('bass')"><span class="fx-dot"></span>Bass Boost</button>
+        <button class="fx-btn" id="fx-treble" onclick="toggleFx('treble')"><span class="fx-dot"></span>Treble</button>
+        <button class="fx-btn" id="fx-reverb" onclick="toggleFx('reverb')"><span class="fx-dot"></span>Reverb</button>
+        <button class="fx-btn" id="fx-3d" onclick="toggleFx('3d')"><span class="fx-dot"></span>3D Hang</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SHORTCUTS -->
+  <div class="extras-row" style="margin-top:0;">
+    <!-- Billentyűparancsok -->
+    <div class="mini-card" style="grid-column: 1 / 3;">
+      <div class="section-label">Gyorsbillentyűk</div>
+      <div class="key-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.4rem;">
+        <div class="key-row"><kbd>Szóköz</kbd> Le/Megállít</div>
+        <div class="key-row"><kbd>←</kbd><kbd>→</kbd> Dal váltás</div>
+        <div class="key-row"><kbd>↑</kbd><kbd>↓</kbd> Hangerő</div>
+        <div class="key-row"><kbd>S</kbd> Véletlen</div>
+        <div class="key-row"><kbd>R</kbd> Ismétlés</div>
+        <div class="key-row"><kbd>M</kbd> Némítás</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== KERESŐMODUL =====
+function filterPlaylist(tab, term) {
+  const q = term.trim().toLowerCase();
+  const isLocal = tab === 'local';
+  const container = document.getElementById(isLocal ? 'playlist' : 'cloud-playlist');
+  const noResults = document.getElementById(isLocal ? 'local-no-results' : 'cloud-no-results');
+  const clearBtn = document.getElementById(isLocal ? 'local-search-clear' : 'cloud-search-clear');
+
+  clearBtn.classList.toggle('visible', q.length > 0);
+
+  const items = container.querySelectorAll(isLocal ? '.pl-item' : '.pl-item-cloud');
+  let visibleCount = 0;
+  items.forEach(item => {
+    const titleEl = item.querySelector('.pl-title, .cloud-item-name, .pl-name');
+    const title = titleEl ? titleEl.textContent.toLowerCase() : item.textContent.toLowerCase();
+    const match = !q || title.includes(q);
+    item.classList.toggle('search-hidden', !match);
+    if (match) visibleCount++;
+  });
+  if (noResults) noResults.classList.toggle('visible', q.length > 0 && visibleCount === 0);
+}
+
+function clearSearch(tab) {
+  const input = document.getElementById(tab === 'local' ? 'local-search' : 'cloud-search');
+  input.value = '';
+  filterPlaylist(tab, '');
+  input.focus();
+}
+// ===== KERESŐMODUL VÉGE =====
+
+// ===== ADMIN =====
+const ADMIN_HASH = '8bbcbd366d9a80bfaea2304ac187f2b7b51bf216920d72c34ecf667314fcd091';
+let adminKeysPressed = [];
+const ADMIN_SEQUENCE = ['KeyA','KeyD','KeyM']; // Shift+A+D+M sorban
+
+document.addEventListener('keydown', function(e) {
+  if (!e.shiftKey) { adminKeysPressed = []; return; }
+  adminKeysPressed.push(e.code);
+  if (adminKeysPressed.length > ADMIN_SEQUENCE.length) adminKeysPressed.shift();
+  if (adminKeysPressed.join(',') === ADMIN_SEQUENCE.join(',')) {
+    adminKeysPressed = [];
+    openAdminLogin();
+  }
+});
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function openAdminLogin() {
+  document.getElementById('admin-login-overlay').style.display = 'flex';
+  document.getElementById('admin-user-input').value = '';
+  document.getElementById('admin-pass-input').value = '';
+  document.getElementById('admin-err').textContent = '';
+  setTimeout(() => document.getElementById('admin-user-input').focus(), 100);
+}
+
+function closeAdminLogin() {
+  document.getElementById('admin-login-overlay').style.display = 'none';
+}
+
+async function adminLogin() {
+  const user = document.getElementById('admin-user-input').value.trim();
+  const pass = document.getElementById('admin-pass-input').value;
+  const combined = user + ':' + pass;
+  const hash = await sha256(combined);
+
+  if (hash === ADMIN_HASH) {
+    closeAdminLogin();
+    openAdminPanel();
+  } else {
+    document.getElementById('admin-err').textContent = '⚠ Hibás felhasználónév vagy jelszó';
+    document.getElementById('admin-pass-input').value = '';
+    document.getElementById('admin-pass-input').focus();
+  }
+}
+
+async function openAdminPanel() {
+  document.getElementById('admin-panel-overlay').style.display = 'block';
+
+  if (!gAccessToken) {
+    // Nincs Google token — beléptetjük, majd utána töltjük az adatokat
+    document.getElementById('admin-song-list').innerHTML =
+      '<div style="color:var(--muted);font-size:0.85rem;">⏳ Google bejelentkezés szükséges az adatokhoz...</div>';
+    document.getElementById('admin-report-list').innerHTML = '';
+    document.getElementById('admin-stat-songs').textContent = '…';
+    document.getElementById('admin-stat-reports').textContent = '…';
+    document.getElementById('admin-stat-flagged').textContent = '…';
+
+    // Elindítjuk a Google OAuth flow-t
+    // Sikeres bejelentkezés után az onTokenReceived hívja loadAdminDataIfOpen()-t
+    _adminPanelPendingLoad = true;
+    startGoogleSignIn();
+  } else {
+    await loadAdminData();
+  }
+}
+
+let _adminPanelPendingLoad = false;
+
+function closeAdminPanel() {
+  document.getElementById('admin-panel-overlay').style.display = 'none';
+}
+
+async function loadAdminData() {
+  if (!gAccessToken) return;
+
+  try {
+    const resp = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/Sheet1!A2:J200`, {
+      headers: { Authorization: 'Bearer ' + gAccessToken }
+    });
+    const data = await resp.json();
+    const rows = (data.values || []).filter(r => r[1]); // csak sorok ahol van Item name
+
+    // Statisztikák
+    const flagged = rows.filter(r => r[6] === 'TRUE').length;
+    const reported = rows.filter(r => r[6] === 'TRUE' || (r[7] && r[7].trim())).length;
+    document.getElementById('admin-stat-songs').textContent = rows.length;
+    document.getElementById('admin-stat-reports').textContent = reported;
+    document.getElementById('admin-stat-flagged').textContent = flagged;
+
+    // Dal lista
+    const songList = document.getElementById('admin-song-list');
+    if (!rows.length) {
+      songList.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;">Nincsenek dalok</div>';
+    } else {
+      songList.innerHTML = rows.map((r, i) => {
+        const isFlagged = r[6] === 'TRUE';
+        return `
+        <div class="admin-song-row" style="${isFlagged ? 'background:rgba(250,109,143,0.08);border-left:3px solid var(--accent2);padding-left:0.75rem;' : ''}">
+          <span style="font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--muted);width:20px;">${i+1}</span>
+          <span class="admin-song-name">${isFlagged ? '🚩 ' : ''}${escHtml(r[1]||'—')}</span>
+          <span class="admin-song-meta">${escHtml(r[2]||'')}</span>
+          <span class="admin-song-meta">${escHtml(r[4]||'')}</span>
+          ${isFlagged ? `<span class="admin-song-meta" style="color:var(--accent2);">${escHtml(r[7]||'flagelt')}</span>` : ''}
+          <button class="admin-del-btn" onclick="adminDeleteSong(${i+2}, '${escHtml(r[1]||'')}')">🗑 Törlés</button>
+        </div>`;
+      }).join('');
+    }
+
+    // Feljelentések (ahol G=TRUE)
+    const reportList = document.getElementById('admin-report-list');
+    const flaggedRows = rows.filter(r => r[6] === 'TRUE');
+    if (!flaggedRows.length) {
+      reportList.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;">Nincsenek feljelentések</div>';
+    } else {
+      reportList.innerHTML = flaggedRows.map(r => `
+        <div class="admin-song-row">
+          <span class="admin-song-name">🚩 ${escHtml(r[1]||'—')}</span>
+          <span class="admin-song-meta">${escHtml(r[4]||'')}</span>
+          <span class="admin-song-meta" style="color:var(--accent2);">${escHtml(r[7]||'')}</span>
+          <span class="admin-song-meta">${escHtml(r[8]||'')}</span>
+        </div>
+      `).join('');
+    }
+
+  } catch(e) {
+    document.getElementById('admin-song-list').innerHTML =
+      '<div style="color:var(--accent2);font-size:0.82rem;">Hiba: ' + e.message + '</div>';
+  }
+}
+
+async function adminDeleteSong(rowNum, name) {
+  if (!confirm(`Biztosan törlöd: "${name}"?`)) return;
+  try {
+    // 1. Sheet1 sor törlése
+    const sheetInfoResp = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}?fields=sheets.properties`, {
+      headers: { Authorization: 'Bearer ' + gAccessToken }
+    });
+    const sheetInfo = await sheetInfoResp.json();
+    const sheet1 = sheetInfo.sheets.find(s => s.properties.title === 'Sheet1');
+    const sheetId = sheet1 ? sheet1.properties.sheetId : 0;
+
+    // Lekérjük a Drive ID-t törlés előtt (J oszlop = index 9... de valójában a kód G oszlopba menti)
+    // A Drive file ID az F oszlopból kinyerhető (URL-ből)
+    const rowResp = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/Sheet1!A${rowNum}:J${rowNum}`, {
+      headers: { Authorization: 'Bearer ' + gAccessToken }
+    });
+    const rowData = await rowResp.json();
+    const rowVals = (rowData.values || [[]])[0] || [];
+    const driveFileId = rowVals[6] && rowVals[6].length > 10 ? rowVals[6] : null; // G oszlop = Drive ID (ha van)
+    // F oszlop = file URL — ebből kinyerjük az ID-t ha nincs G-ben
+    const fileUrl = rowVals[5] || '';
+    const urlMatch = fileUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    const driveId = driveFileId || (urlMatch ? urlMatch[1] : null);
+
+    // Sor törlése Sheetsből
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}:batchUpdate`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + gAccessToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests: [{ deleteDimension: {
+        range: { sheetId, dimension: 'ROWS', startIndex: rowNum-1, endIndex: rowNum }
+      }}]})
+    });
+
+    // 2. Drive fájl törlése (ha van ID)
+    if (driveId) {
+      await fetch(`https://www.googleapis.com/drive/v3/files/${driveId}`, {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer ' + gAccessToken }
+      });
+    }
+
+    await loadAdminData();
+  } catch(e) {
+    alert('Törlési hiba: ' + e.message);
+  }
+}
+// ===== ADMIN VÉGE =====
+
+const audio = new Audio();
+let playlist = [];
+let curIdx = 0;
+let shuffle = false;
+let repeat = 0; // 0=off 1=all 2=one
+let shuffleHistory = [];
+let prevMute = 80;
+let isMuted = false;
+let sleepTimer = null;
+let sleepEnd = null;
+let sleepInterval = null;
+let audioCtx = null;
+let analyser = null;
+let source = null;
+let gainNode = null;
+let convolver = null;
+let bassFilter = null;
+let trebleFilter = null;
+let pannerNode = null;
+let fxState = {bass:false, treble:false, reverb:false, '3d':false};
+let isPlaying = false;
+
+// EQ bands
+const eqBands = [
+  {freq:60,label:'60Hz'},
+  {freq:170,label:'170Hz'},
+  {freq:310,label:'310Hz'},
+  {freq:600,label:'600Hz'},
+  {freq:1000,label:'1kHz'},
+  {freq:3000,label:'3kHz'},
+  {freq:6000,label:'6kHz'},
+  {freq:12000,label:'12kHz'},
+];
+let eqNodes = [];
+
+function buildEQ() {
+  const grid = document.getElementById('eq-grid');
+  grid.innerHTML = '';
+  eqBands.forEach((b,i) => {
+    const div = document.createElement('div');
+    div.className = 'eq-band';
+    div.innerHTML = `<div class="eq-slider-wrap"><input type="range" class="eq-slider" min="-12" max="12" value="0" data-i="${i}" oninput="setEQ(${i},this.value)"></div><div class="eq-label">${b.label}</div>`;
+    grid.appendChild(div);
+  });
+}
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  gainNode = audioCtx.createGain();
+
+  bassFilter = audioCtx.createBiquadFilter();
+  bassFilter.type = 'lowshelf'; bassFilter.frequency.value = 200; bassFilter.gain.value = 0;
+
+  trebleFilter = audioCtx.createBiquadFilter();
+  trebleFilter.type = 'highshelf'; trebleFilter.frequency.value = 3000; trebleFilter.gain.value = 0;
+
+  pannerNode = audioCtx.createPanner();
+  pannerNode.panningModel = 'HRTF';
+  pannerNode.setPosition(0,0,0);
+
+  // EQ filters
+  eqNodes = eqBands.map((b) => {
+    const f = audioCtx.createBiquadFilter();
+    f.type = 'peaking'; f.frequency.value = b.freq; f.gain.value = 0; f.Q.value = 1;
+    return f;
+  });
+
+  source = audioCtx.createMediaElementSource(audio);
+
+  let chain = source;
+  chain.connect(bassFilter); chain = bassFilter;
+  chain.connect(trebleFilter); chain = trebleFilter;
+  eqNodes.forEach(n => { chain.connect(n); chain = n; });
+  chain.connect(pannerNode);
+  pannerNode.connect(gainNode);
+  gainNode.connect(analyser);
+  analyser.connect(audioCtx.destination);
+}
+
+function loadFiles(files) {
+  const arr = Array.from(files).filter(f => f.type.startsWith('audio/') || f.type.startsWith('video/'));
+  if (!arr.length) return;
+  arr.forEach(f => {
+    const url = URL.createObjectURL(f);
+    const item = {
+      file: f,
+      name: f.name.replace(/\.[^.]+$/, ''),
+      url,
+      dur: 0,
+      isVideo: f.type.startsWith('video/')
+    };
+    playlist.push(item);
+
+    // Duration lekérés aszinkron
+    const probe = document.createElement(item.isVideo ? 'video' : 'audio');
+    probe.preload = 'metadata';
+    probe.src = url;
+    probe.addEventListener('loadedmetadata', () => {
+      item.dur = probe.duration || 0;
+      probe.src = '';
+      renderPlaylist();
+      updateTotalDuration();
+    }, { once: true });
+  });
+  renderPlaylist();
+  updateTotalDuration();
+  document.getElementById('upload-screen').classList.add('hidden');
+  document.getElementById('main-app').style.display = 'grid';
+  if (!isPlaying) loadTrack(playlist.length - arr.length);
+}
+
+function updateTotalDuration() {
+  const total = playlist.reduce((s, t) => s + (isFinite(t.dur) ? t.dur : 0), 0);
+  document.getElementById('pl-total-dur').textContent = 'összesen: ' + fmtLong(total);
+}
+
+function fmtLong(sec) {
+  if (!sec || !isFinite(sec)) return '—';
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  if (h > 0) return `${h}ó ${m}p ${String(s).padStart(2,'0')}s`;
+  if (m > 0) return `${m}p ${String(s).padStart(2,'0')}s`;
+  return `${s}s`;
+}
+
+// Video thumbnail drawing
+let videoEl = null;
+let videoThumbAF = null;
+
+function startVideoThumb() {
+  if (videoThumbAF) cancelAnimationFrame(videoThumbAF);
+  const canvas = document.getElementById('video-thumb-canvas');
+  const ctx = canvas.getContext('2d');
+  function draw() {
+    videoThumbAF = requestAnimationFrame(draw);
+    if (!videoEl || videoEl.readyState < 2) return;
+    canvas.width = canvas.offsetWidth || 148;
+    canvas.height = canvas.offsetHeight || 148;
+    const W = canvas.width, H = canvas.height;
+    const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
+    if (!vw || !vh) return;
+    // Kitöltő vágás (cover)
+    const scale = Math.max(W/vw, H/vh);
+    const sw = W/scale, sh = H/scale;
+    const sx = (vw - sw)/2, sy = (vh - sh)/2;
+    ctx.drawImage(videoEl, sx, sy, sw, sh, 0, 0, W, H);
+  }
+  draw();
+}
+
+function stopVideoThumb() {
+  if (videoThumbAF) { cancelAnimationFrame(videoThumbAF); videoThumbAF = null; }
+}
+
+function openVideoFullscreen() {
+  if (!videoEl) return;
+  const overlay = document.getElementById('video-overlay');
+  const vfull = document.getElementById('video-fullscreen');
+  vfull.src = playlist[curIdx].url;
+  vfull.currentTime = videoEl.currentTime;
+  overlay.style.display = 'flex';
+  vfull.play();
+  // Szinkron: ha a mini-lejátszó lejár, a fullscreen is frissüljön
+  vfull.onended = () => { closeVideoFullscreen(); nextTrack(); };
+}
+
+function closeVideoFullscreen() {
+  const overlay = document.getElementById('video-overlay');
+  const vfull = document.getElementById('video-fullscreen');
+  // Szinkronizáld vissza az időt a mini elemhez
+  if (videoEl && isFinite(vfull.currentTime)) videoEl.currentTime = vfull.currentTime;
+  vfull.pause();
+  vfull.src = '';
+  overlay.style.display = 'none';
+}
+
+// Bezárás Escape-re
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    const overlay = document.getElementById('video-overlay');
+    if (overlay.style.display !== 'none') closeVideoFullscreen();
+  }
+});
+
+function loadTrack(idx) {
+  if (!playlist.length) return;
+  curIdx = idx;
+  const t = playlist[idx];
+  document.getElementById('track-name').textContent = t.name;
+  document.getElementById('track-artist').textContent = t.isVideo ? '🎬 Videó' : (t.isCloud ? '☁ Cloud' : 'Betöltött fájl');
+  document.title = t.name + ' — SONIC';
+  updateMediaSession(isPlaying);
+
+  const vinyl = document.getElementById('vinyl');
+  const videoWrap = document.getElementById('video-circle-wrap');
+
+  if (t.isVideo) {
+    // Videó mód
+    vinyl.style.display = 'none';
+    videoWrap.style.display = 'block';
+    stopVideoThumb();
+    if (videoEl) { videoEl.pause(); videoEl.src = ''; }
+    videoEl = document.createElement('video');
+    videoEl.src = t.url;
+    videoEl.muted = false;
+    videoEl.crossOrigin = 'anonymous';
+    videoEl.preload = 'auto';
+    videoEl.addEventListener('timeupdate', () => {
+      const p = videoEl.duration ? (videoEl.currentTime / videoEl.duration) * 100 : 0;
+      document.getElementById('progress-fill').style.width = p + '%';
+      document.getElementById('cur-time').textContent = fmt(videoEl.currentTime);
+      document.getElementById('tot-time').textContent = fmt(videoEl.duration);
+    });
+    videoEl.addEventListener('ended', nextTrack);
+    // Bekötjük a videó hangját a Web Audio analyser-be
+    initAudio();
+    try {
+      if (!videoEl._audioSourceNode) {
+        const videoSource = audioCtx.createMediaElementSource(videoEl);
+        videoEl._audioSourceNode = videoSource;
+        videoSource.connect(analyser);
+        analyser.connect(audioCtx.destination);
+      }
+    } catch(e) { /* már be van kötve */ }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    startVideoThumb();
+    if (isPlaying) videoEl.play();
+    audio.pause(); audio.src = '';
+  } else {
+    // Audio mód
+    vinyl.style.display = '';
+    videoWrap.style.display = 'none';
+    stopVideoThumb();
+    if (videoEl) { videoEl.pause(); videoEl.src = ''; videoEl = null; }
+    audio.src = t.url;
+    if (isPlaying) audio.play().then(()=>initAudio());
+  }
+  // Videó módban a canvas a kör fölé kerül (tüskék kívül látszanak)
+  const coverCanvas = document.getElementById('cover-canvas');
+  if (t.isVideo) {
+    coverCanvas.style.zIndex = '4';
+    coverCanvas.style.pointerEvents = 'none';
+  } else {
+    coverCanvas.style.zIndex = '';
+    coverCanvas.style.pointerEvents = '';
+  }
+  renderPlaylist();
+}
+
+function updateMediaSession(playing) {
+  if (!('mediaSession' in navigator)) return;
+  const t = playlist[curIdx];
+  if (!t) return;
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: t.name,
+    artist: t.isVideo ? 'Videó' : 'SONIC Player',
+    album: `${curIdx + 1} / ${playlist.length}`,
+  });
+  navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+  navigator.mediaSession.setActionHandler('play', () => { togglePlay(); });
+  navigator.mediaSession.setActionHandler('pause', () => { togglePlay(); });
+  navigator.mediaSession.setActionHandler('previoustrack', () => { prevTrack(); });
+  navigator.mediaSession.setActionHandler('nexttrack', () => { nextTrack(); });
+  navigator.mediaSession.setActionHandler('seekto', (d) => {
+    const target = videoEl || audio;
+    if (isFinite(target.duration)) target.currentTime = d.seekTime;
+  });
+}
+function togglePlay() {
+  if (!playlist.length) return;
+  const t = playlist[curIdx];
+  if (t.isVideo && videoEl) {
+    if (videoEl.paused) {
+      videoEl.play();
+      isPlaying = true;
+      document.getElementById('play-btn').textContent = '⏸';
+      document.querySelectorAll('.pl-item.active').forEach(el => el.classList.add('playing'));
+      updateMediaSession(true);
+    } else {
+      videoEl.pause();
+      isPlaying = false;
+      document.getElementById('play-btn').textContent = '▶';
+      document.querySelectorAll('.pl-item.active').forEach(el => el.classList.remove('playing'));
+      updateMediaSession(false);
+    }
+    return;
+  }
+  initAudio();
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  if (audio.paused) {
+    audio.play();
+    isPlaying = true;
+    document.getElementById('play-btn').textContent = '⏸';
+    document.getElementById('vinyl').classList.add('spinning');
+    document.querySelectorAll('.pl-item.active').forEach(el => el.classList.add('playing'));
+    startViz();
+    updateMediaSession(true);
+  } else {
+    audio.pause();
+    isPlaying = false;
+    document.getElementById('play-btn').textContent = '▶';
+    document.getElementById('vinyl').classList.remove('spinning');
+    document.querySelectorAll('.pl-item.active').forEach(el => el.classList.remove('playing'));
+    updateMediaSession(false);
+  }
+}
+
+function prevTrack() {
+  if (shuffle && shuffleHistory.length > 1) {
+    shuffleHistory.pop();
+    loadTrack(shuffleHistory[shuffleHistory.length - 1]);
+  } else {
+    loadTrack((curIdx - 1 + playlist.length) % playlist.length);
+  }
+  if (isPlaying) audio.play();
+}
+
+function nextTrack() {
+  if (repeat === 2) { if (isFinite(audio.duration)) audio.currentTime = 0; audio.play(); return; }
+  if (shuffle) {
+    const idx = Math.floor(Math.random() * playlist.length);
+    shuffleHistory.push(idx);
+    loadTrack(idx);
+  } else {
+    const next = (curIdx + 1) % playlist.length;
+    if (next === 0 && repeat === 0) { audio.pause(); isPlaying = false; document.getElementById('play-btn').textContent = '▶'; return; }
+    loadTrack(next);
+  }
+  if (isPlaying) audio.play();
+}
+
+audio.addEventListener('ended', nextTrack);
+
+audio.addEventListener('timeupdate', () => {
+  if (videoEl) return; // videó mód: a videoEl saját listenere kezeli
+  const p = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0;
+  document.getElementById('progress-fill').style.width = p + '%';
+  document.getElementById('cur-time').textContent = fmt(audio.currentTime);
+  document.getElementById('tot-time').textContent = fmt(audio.duration);
+});
+
+function fmt(s) {
+  if (!s || isNaN(s)) return '0:00';
+  const m = Math.floor(s/60), sec = Math.floor(s%60);
+  return m + ':' + String(sec).padStart(2,'0');
+}
+
+document.getElementById('progress-bar').addEventListener('click', e => {
+  const r = e.currentTarget.getBoundingClientRect();
+  const target = videoEl || audio;
+  if (!isFinite(target.duration) || !target.duration) return;
+  target.currentTime = ((e.clientX - r.left) / r.width) * target.duration;
+});
+
+function setVolume(v) {
+  audio.volume = v/100;
+  prevMute = v;
+  document.getElementById('vol-val').textContent = v;
+  document.getElementById('vol-icon').textContent = v==0?'🔇':v<40?'🔉':'🔊';
+  document.getElementById('vol-slider').style.setProperty('--val', v+'%');
+  if (gainNode) gainNode.gain.value = v/100;
+}
+
+function toggleMute() {
+  if (isMuted) { setVolume(prevMute); document.getElementById('vol-slider').value = prevMute; isMuted = false; }
+  else { prevMute = document.getElementById('vol-slider').value; setVolume(0); document.getElementById('vol-slider').value = 0; isMuted = true; }
+}
+
+function toggleShuffle() {
+  shuffle = !shuffle;
+  document.getElementById('btn-shuffle').style.color = shuffle ? 'var(--accent)' : '';
+}
+
+function toggleRepeat() {
+  repeat = (repeat + 1) % 3;
+  const icons = ['🔁','🔂','🔂'];
+  const colors = ['','var(--accent)','var(--accent2)'];
+  document.getElementById('btn-repeat').textContent = icons[repeat];
+  document.getElementById('btn-repeat').style.color = colors[repeat];
+}
+
+function renderPlaylist() {
+  const pl = document.getElementById('playlist');
+  document.getElementById('pl-count').textContent = playlist.length;
+  if (!playlist.length) { pl.innerHTML = '<div class="pl-empty">Még nincsenek dalok</div>'; return; }
+  pl.innerHTML = playlist.map((t,i) => `
+    <div class="pl-item ${i===curIdx?'active':''} ${i===curIdx&&isPlaying?'playing':''}" onclick="loadTrack(${i});if(!isPlaying)togglePlay();">
+      <div class="pl-num">${i+1}</div>
+      <div class="pl-bars"><div class="pl-bar"></div><div class="pl-bar"></div><div class="pl-bar"></div></div>
+      <div style="flex:1;min-width:0;">
+        <div class="pl-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.name}</div>
+      </div>
+      <div class="pl-dur">${fmt(t.dur||0)}</div>
+    </div>
+  `).join('');
+}
+
+function setEQ(i, val) {
+  if (eqNodes[i]) eqNodes[i].gain.value = parseFloat(val);
+}
+
+function setSpeed(v) {
+  const s = v/100;
+  audio.playbackRate = s;
+  document.getElementById('speed-val').textContent = s.toFixed(2) + '×';
+}
+
+function setSleep(mins) {
+  document.querySelectorAll('.sleep-btn').forEach(b => b.classList.remove('active'));
+  clearTimeout(sleepTimer); clearInterval(sleepInterval);
+  document.getElementById('sleep-countdown').textContent = '';
+  if (!mins) return;
+  event.target.classList.add('active');
+  sleepEnd = Date.now() + mins * 60000;
+  sleepTimer = setTimeout(() => { audio.pause(); isPlaying = false; document.getElementById('play-btn').textContent = '▶'; document.getElementById('sleep-countdown').textContent = 'Lejárt — zene megállítva'; }, mins * 60000);
+  sleepInterval = setInterval(() => {
+    const rem = Math.max(0, sleepEnd - Date.now());
+    const m = Math.floor(rem/60000), s = Math.floor((rem%60000)/1000);
+    document.getElementById('sleep-countdown').textContent = `${m}p ${String(s).padStart(2,'0')}s maradt`;
+    if (rem <= 0) clearInterval(sleepInterval);
+  }, 1000);
+}
+
+function toggleFx(name) {
+  initAudio();
+  fxState[name] = !fxState[name];
+  document.getElementById('fx-'+name).classList.toggle('active', fxState[name]);
+  if (name === 'bass') bassFilter.gain.value = fxState.bass ? 8 : 0;
+  if (name === 'treble') trebleFilter.gain.value = fxState.treble ? 6 : 0;
+  if (name === '3d') {
+    if (fxState['3d']) {
+      let a = 0;
+      fxState._3dInterval = setInterval(() => {
+        a += 0.05;
+        pannerNode.setPosition(Math.sin(a)*3,0,Math.cos(a)*3);
+      }, 50);
+    } else {
+      clearInterval(fxState._3dInterval);
+      pannerNode.setPosition(0,0,0);
+    }
+  }
+}
+
+function startViz() {
+  // vizualizáció a cover canvasra kerül, nincs külön panel
+}
+
+// Cover canvas: háttér animáció + kör vizualizátor a vinyl körül
+function animCover() {
+  const canvas = document.getElementById('cover-canvas');
+  const ctx = canvas.getContext('2d');
+  let t = 0;
+  function frame() {
+    requestAnimationFrame(frame);
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0,0,W,H);
+
+    // Háttér gömb animáció
+    for (let i=0; i<3; i++) {
+      const x = W/2 + Math.sin(t*0.5+i*2)*W*0.3;
+      const y = H/2 + Math.cos(t*0.4+i*1.5)*H*0.3;
+      const g = ctx.createRadialGradient(x,y,0,x,y,W*0.5);
+      const colors = [['rgba(124,109,250,0.15)','rgba(124,109,250,0)'],['rgba(250,109,143,0.1)','rgba(250,109,143,0)'],['rgba(109,250,204,0.1)','rgba(109,250,204,0)']];
+      g.addColorStop(0, colors[i][0]); g.addColorStop(1, colors[i][1]);
+      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+    }
+
+    // Kör vizualizátor a vinyl körül
+    if (analyser && isPlaying) {
+      const buf = new Uint8Array(analyser.frequencyBinCount);
+      analyser.getByteFrequencyData(buf);
+      const n = buf.length;
+      const cx = W / 2, cy = H / 2;
+      // vinyl sugara kb. 70px az eredeti méretéből — arányosan skálázzuk
+      const vinylR = Math.min(W, H) * 0.24;
+      const maxSpike = Math.min(W, H) * 0.18;
+
+      // Külső ragyogás
+      const glowGrad = ctx.createRadialGradient(cx,cy, vinylR*0.9, cx,cy, vinylR+maxSpike*0.6);
+      glowGrad.addColorStop(0, 'rgba(124,109,250,0.0)');
+      glowGrad.addColorStop(1, 'rgba(124,109,250,0.0)');
+
+      // Tüskék
+      for (let i = 0; i < n; i++) {
+        const angle = (i / n) * Math.PI * 2 - Math.PI / 2;
+        const val = buf[i] / 255;
+        const len = val * maxSpike;
+        const hue = (i / n) * 280 + 200;
+        const alpha = 0.5 + val * 0.5;
+
+        ctx.save();
+        ctx.strokeStyle = `hsla(${hue}, 80%, 65%, ${alpha})`;
+        ctx.lineWidth = 1.5 + val * 1.5;
+        ctx.shadowColor = `hsl(${hue}, 80%, 65%)`;
+        ctx.shadowBlur = 6 * val;
+        ctx.beginPath();
+        ctx.moveTo(
+          cx + Math.cos(angle) * vinylR,
+          cy + Math.sin(angle) * vinylR
+        );
+        ctx.lineTo(
+          cx + Math.cos(angle) * (vinylR + len),
+          cy + Math.sin(angle) * (vinylR + len)
+        );
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Körvonal a vinyl szélén
+      ctx.beginPath();
+      ctx.arc(cx, cy, vinylR, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(124,109,250,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.shadowColor = 'rgba(124,109,250,0.8)';
+      ctx.shadowBlur = 8;
+      ctx.stroke();
+
+    } else {
+      // Csend: halvány körök pulzálnak
+      const cx = W/2, cy = H/2;
+      const vinylR = Math.min(W,H)*0.24;
+      const pulse = Math.sin(t*2)*0.5+0.5;
+      ctx.beginPath();
+      ctx.arc(cx,cy,vinylR,0,Math.PI*2);
+      ctx.strokeStyle = `rgba(124,109,250,${0.15+pulse*0.1})`;
+      ctx.lineWidth = 1.5;
+      ctx.shadowBlur = 0;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx,cy,vinylR*1.12,0,Math.PI*2);
+      ctx.strokeStyle = `rgba(124,109,250,${0.07+pulse*0.06})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    t += 0.01;
+  }
+  frame();
+}
+animCover();
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+  if (e.code === 'ArrowLeft') prevTrack();
+  if (e.code === 'ArrowRight') nextTrack();
+  if (e.code === 'ArrowUp') { const v = Math.min(100, parseInt(document.getElementById('vol-slider').value)+5); document.getElementById('vol-slider').value = v; setVolume(v); }
+  if (e.code === 'ArrowDown') { const v = Math.max(0, parseInt(document.getElementById('vol-slider').value)-5); document.getElementById('vol-slider').value = v; setVolume(v); }
+  if (e.key === 's' || e.key === 'S') toggleShuffle();
+  if (e.key === 'r' || e.key === 'R') toggleRepeat();
+  if (e.key === 'm' || e.key === 'M') toggleMute();
+});
+
+// ===== CLOUD / GOOGLE INTEGRATION =====
+
+const GOOGLE_CLIENT_ID = '201865716068-tnjvollnge5hs52vb1etht36202rkqc8.apps.googleusercontent.com';
+const SHEETS_ID = '19owoL_9_Ntojlq06_jaZTW7JnZnP56NmpcRZHbJw0JI';
+// Drive folder ID — set this after you create a shared Drive folder and paste its ID here
+// To get it: create folder in Drive → Share (Anyone with link, Editor) → copy ID from URL
+const DRIVE_FOLDER_ID = '16HOzkcNbcj6H5qribKcisnV9LRjrQCFC';
+// Host: Netlify — authorized origin a Google Cloud Console-ban: https://YOUR-SITE.netlify.app
+
+let gAccessToken = null;   // OAuth access token
+let gUserInfo = null;      // { name, email, picture }
+let cloudFileToUpload = null; // { file, name }
+let activeTab = 'local';
+
+// -- Google Sign-In --
+
+function startGoogleSignIn() {
+  // Force fresh consent every time so the correct scopes are always granted
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets email profile',
+    prompt: 'consent',
+    include_granted_scopes: false,
+    callback: onTokenReceived,
+  });
+  client.requestAccessToken();
+}
+
+async function onTokenReceived(resp) {
+  if (resp.error) {
+    console.error('OAuth error:', resp.error);
+    return;
+  }
+  gAccessToken = resp.access_token;
+  console.log('Token received. Scope:', resp.scope);
+
+  // Fetch user info
+  try {
+    const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: 'Bearer ' + gAccessToken }
+    });
+    gUserInfo = await r.json();
+    updateCloudUI(true);
+    ensureFlaggedFormatting();
+    if (activeTab === 'cloud') loadCloudPlaylist();
+
+    // Ha az admin panel várt a tokénre, most töltjük be
+    if (_adminPanelPendingLoad) {
+      _adminPanelPendingLoad = false;
+      await loadAdminData();
+    }
+  } catch(e) {
+    console.error('Userinfo fetch failed:', e);
+  }
+}
+
+function updateCloudUI(signedIn) {
+  document.getElementById('cloud-signed-out').style.display = signedIn ? 'none' : 'flex';
+  document.getElementById('cloud-signed-in').style.display = signedIn ? 'flex' : 'none';
+  document.getElementById('btn-open-upload-modal').style.display = signedIn ? 'flex' : 'none';
+  document.getElementById('btn-signout').style.display = signedIn ? '' : 'none';
+
+  if (signedIn && gUserInfo) {
+    document.getElementById('cloud-avatar').src = gUserInfo.picture || '';
+    document.getElementById('cloud-user-name').textContent = gUserInfo.name || 'Felhasználó';
+    document.getElementById('cloud-user-email').textContent = gUserInfo.email || '';
+  }
+
+  // Reload cloud panel message if on that tab
+  if (!signedIn) {
+    document.getElementById('cloud-playlist').innerHTML =
+      '<div class="pl-empty-cloud"><div>Jelentkezz be a cloud playlist megtekintéséhez</div></div>';
+    document.getElementById('cloud-pl-count').textContent = '—';
+  }
+}
+
+function googleSignOut() {
+  if (gAccessToken) google.accounts.oauth2.revoke(gAccessToken, () => {});
+  gAccessToken = null;
+  gUserInfo = null;
+  updateCloudUI(false);
+}
+
+// -- Tab switching --
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('tab-local').classList.toggle('active', tab === 'local');
+  document.getElementById('tab-cloud').classList.toggle('active', tab === 'cloud');
+  document.getElementById('panel-local').style.display = tab === 'local' ? '' : 'none';
+  document.getElementById('panel-cloud').style.display = tab === 'cloud' ? '' : 'none';
+
+  if (tab === 'cloud' && gAccessToken) loadCloudPlaylist();
+  if (tab === 'cloud' && !gAccessToken) {
+    document.getElementById('cloud-playlist').innerHTML =
+      '<div class="pl-empty-cloud">Jelentkezz be a bal felső sarokban a cloud playlist megtekintéséhez ☁</div>';
+  }
+}
+
+// Called from upload screen cloud button
+function openFromCloud() {
+  document.getElementById('upload-screen').classList.add('hidden');
+  document.getElementById('main-app').style.display = 'grid';
+  switchTab('cloud');
+}
+
+// -- Cloud Upload Modal --
+
+function openCloudModal() {
+  if (!gAccessToken) { alert('Előbb jelentkezz be Google-lel!'); return; }
+  // Pre-fill from current track
+  const t = playlist[curIdx];
+  if (t) {
+    document.getElementById('cloud-file-name').value = t.file ? t.file.name : t.name;
+    document.getElementById('cloud-item-name').value = t.name;
+    document.getElementById('cloud-item-type').value = t.isVideo ? 'Video' : 'Music';
+    cloudFileToUpload = { file: t.file || null, name: t.name };
+  }
+  if (gUserInfo) document.getElementById('cloud-uploader-name').value = gUserInfo.name || '';
+  document.getElementById('cloud-status').textContent = '';
+  document.getElementById('cloud-status').className = 'cloud-status-msg';
+  document.getElementById('cloud-progress-wrap').style.display = 'none';
+  document.getElementById('cloud-progress-label').style.display = 'none';
+  document.getElementById('cloud-submit-btn').disabled = false;
+  document.getElementById('cloud-modal').style.display = 'flex';
+}
+
+function closeCloudModal() {
+  document.getElementById('cloud-modal').style.display = 'none';
+  cloudFileToUpload = null;
+}
+
+function pickFileForCloud() {
+  document.getElementById('cloud-file-input').click();
+}
+
+function onCloudFileChosen(input) {
+  if (!input.files.length) return;
+  const f = input.files[0];
+
+  // Azonnali méretellenőrzés
+  const sizeMB = f.size / (1024 * 1024);
+  if (sizeMB > MAX_FILE_SIZE_MB) {
+    showCloudStatus(`⚠ Ez a fájl ${sizeMB.toFixed(1)} MB — max ${MAX_FILE_SIZE_MB} MB engedélyezett!`, 'err');
+    input.value = '';
+    return;
+  }
+
+  cloudFileToUpload = { file: f, name: f.name.replace(/\.[^.]+$/, '') };
+  document.getElementById('cloud-file-name').value = f.name;
+  document.getElementById('cloud-item-name').value = cloudFileToUpload.name;
+  document.getElementById('cloud-item-type').value = f.type.startsWith('video/') ? 'Video' : 'Music';
+  showCloudStatus(`✓ Fájl OK — ${sizeMB.toFixed(1)} MB`, 'ok');
+}
+
+// -- Upload limits --
+const MAX_FILE_SIZE_MB = 500;          // max 500 MB / dal
+const MAX_DURATION_MIN = 60;           // max 60 perc / dal
+
+function checkFileDuration(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const el = file.type.startsWith('video/') ? document.createElement('video') : document.createElement('audio');
+    el.preload = 'metadata';
+    el.onloadedmetadata = () => {
+      URL.revokeObjectURL(url);
+      resolve(el.duration); // másodpercben
+    };
+    el.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Nem olvasható a fájl időtartama')); };
+    el.src = url;
+  });
+}
+
+// -- The actual upload --
+
+async function submitToCloud() {
+  if (!gAccessToken) { showCloudStatus('Nincs bejelentkezve!', 'err'); return; }
+  if (!cloudFileToUpload || !cloudFileToUpload.file) {
+    showCloudStatus('Nincs kiválasztva fájl!', 'err'); return;
+  }
+  if (DRIVE_FOLDER_ID === 'YOUR_DRIVE_FOLDER_ID') {
+    showCloudStatus('⚠ Állítsd be a DRIVE_FOLDER_ID-t a kódban!', 'err'); return;
+  }
+
+  const file = cloudFileToUpload.file;
+
+  // --- Méret ellenőrzés ---
+  const sizeMB = file.size / (1024 * 1024);
+  if (sizeMB > MAX_FILE_SIZE_MB) {
+    showCloudStatus(`⚠ A fájl túl nagy! Max ${MAX_FILE_SIZE_MB} MB (ez ${sizeMB.toFixed(1)} MB)`, 'err');
+    return;
+  }
+
+  // --- Időtartam ellenőrzés ---
+  showCloudStatus('⏳ Időtartam ellenőrzése...', '');
+  try {
+    const durationSec = await checkFileDuration(file);
+    const durationMin = durationSec / 60;
+    if (durationMin > MAX_DURATION_MIN) {
+      showCloudStatus(`⚠ A dal túl hosszú! Max ${MAX_DURATION_MIN} perc (ez ${durationMin.toFixed(1)} perc)`, 'err');
+      return;
+    }
+  } catch(e) {
+    showCloudStatus('⚠ Időtartam nem ellenőrizhető: ' + e.message, 'err');
+    return;
+  }
+
+  const displayName = document.getElementById('cloud-item-name').value.trim() || cloudFileToUpload.name;
+  const itemType = document.getElementById('cloud-item-type').value;
+  const uploaderName = document.getElementById('cloud-uploader-name').value.trim();
+  const notes = document.getElementById('cloud-notes').value.trim();
+
+  document.getElementById('cloud-submit-btn').disabled = true;
+  showCloudStatus('Feltöltés Drive-ra...', '');
+  setCloudProgress(0, true);
+
+  try {
+    // Step 1: Upload to Google Drive (resumable upload)
+    const driveFileId = await uploadToDrive(file, displayName, (pct) => {
+      setCloudProgress(pct, true);
+      document.getElementById('cloud-progress-label').textContent = `Drive: ${pct}%`;
+    });
+
+    setCloudProgress(100, true);
+    showCloudStatus('Drive kész! Sheets frissítése...', '');
+
+    // Step 2: Make the file publicly readable
+    await makeDriveFilePublic(driveFileId);
+
+    // Step 3: Append row to Google Sheets
+    const fileUrl = `https://drive.google.com/uc?export=download&id=${driveFileId}`;
+    await appendToSheets(displayName, itemType, notes, uploaderName, fileUrl, driveFileId);
+
+    setCloudProgress(100, false);
+    showCloudStatus('✓ Sikeresen feltöltve!', 'ok');
+
+    // Refresh cloud playlist if on that tab
+    if (activeTab === 'cloud') setTimeout(loadCloudPlaylist, 800);
+
+    setTimeout(closeCloudModal, 2000);
+
+  } catch(err) {
+    showCloudStatus('Hiba: ' + (err.message || err), 'err');
+    document.getElementById('cloud-submit-btn').disabled = false;
+    setCloudProgress(0, false);
+    console.error('Cloud upload error:', err);
+  }
+}
+
+async function uploadToDrive(file, name, onProgress) {
+  // Initiate resumable upload session
+  const metaResp = await fetch(
+    `https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable`, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + gAccessToken,
+      'Content-Type': 'application/json',
+      'X-Upload-Content-Type': file.type,
+      'X-Upload-Content-Length': file.size,
+    },
+    body: JSON.stringify({
+      name: name + '.' + (file.name.split('.').pop() || 'mp3'),
+      parents: [DRIVE_FOLDER_ID],
+    })
+  });
+
+  if (!metaResp.ok) {
+    const e = await metaResp.text();
+    throw new Error('Drive session init failed: ' + e);
+  }
+
+  const uploadUrl = metaResp.headers.get('Location');
+  if (!uploadUrl) throw new Error('Nincs upload URL a Drive válaszban');
+
+  // Upload file in chunks (256KB chunks for progress)
+  const CHUNK = 256 * 1024;
+  let offset = 0;
+  let driveFileId = null;
+
+  while (offset < file.size) {
+    const end = Math.min(offset + CHUNK, file.size);
+    const chunk = file.slice(offset, end);
+    const pct = Math.round((end / file.size) * 95);
+
+    const chunkResp = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Range': `bytes ${offset}-${end-1}/${file.size}`,
+        'Content-Type': file.type,
+      },
+      body: chunk,
+    });
+
+    if (chunkResp.status === 200 || chunkResp.status === 201) {
+      const data = await chunkResp.json();
+      driveFileId = data.id;
+      onProgress(100);
+      break;
+    } else if (chunkResp.status === 308) {
+      // Resume Incomplete — continue
+      onProgress(pct);
+      offset = end;
+    } else {
+      const e = await chunkResp.text();
+      throw new Error('Drive chunk upload failed: ' + chunkResp.status + ' ' + e);
+    }
+  }
+
+  if (!driveFileId) throw new Error('Drive upload befejezetlen, nincs file ID');
+  return driveFileId;
+}
+
+async function makeDriveFilePublic(fileId) {
+  const resp = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + gAccessToken,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ role: 'reader', type: 'anyone' }),
+  });
+  if (!resp.ok) {
+    const e = await resp.text();
+    console.warn('Public share warning:', e); // not fatal, just warn
+  }
+}
+
+async function appendToSheets(name, type, notes, uploader, fileUrl, driveId) {
+  // Find next empty row by reading current data first
+  const rangeResp = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/A:A`, {
+    headers: { 'Authorization': 'Bearer ' + gAccessToken }
+  });
+  const rangeData = await rangeResp.json();
+  const nextRow = (rangeData.values ? rangeData.values.length : 1) + 1;
+  const newId = nextRow - 1; // ID = row - 1 (first data row = 2, so ID=1)
+
+  const values = [[newId, name, type, notes, uploader, fileUrl, driveId]];
+
+  const appendResp = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/A${nextRow}:G${nextRow}?valueInputOption=RAW`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': 'Bearer ' + gAccessToken,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ values })
+  });
+
+  if (!appendResp.ok) {
+    const e = await appendResp.text();
+    throw new Error('Sheets írás sikertelen: ' + e);
+  }
+}
+
+// -- Report (feljelentés) --
+
+// reportTarget.sheetRow = tényleges Sheets sorszám (2-tól kezdve)
+let reportTarget = { sheetRow: 0, name: '', alreadyFlagged: false };
+let reportSelectedReason = '';
+
+function openReportModal(evt, sheetRow, songName, alreadyFlagged) {
+  evt.stopPropagation();
+  if (!gAccessToken) { alert('Előbb jelentkezz be Google-lel!'); return; }
+  reportTarget = { sheetRow, name: songName, alreadyFlagged: alreadyFlagged === true || alreadyFlagged === 'true' };
+  reportSelectedReason = '';
+
+  document.getElementById('report-modal-song').textContent = songName;
+  document.getElementById('report-note').value = '';
+  const st = document.getElementById('report-status');
+  st.className = 'report-status';
+
+  if (reportTarget.alreadyFlagged) {
+    st.textContent = '⚠ Ez a dal már fel van jelentve.';
+    st.className = 'report-status err';
+  } else {
+    st.textContent = '';
+  }
+
+  document.getElementById('report-submit-btn').disabled = reportTarget.alreadyFlagged;
+  document.querySelectorAll('.report-reason-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('report-modal').style.display = 'flex';
+}
+
+function closeReportModal() {
+  document.getElementById('report-modal').style.display = 'none';
+}
+
+// Close on backdrop click
+document.getElementById('report-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeReportModal();
+});
+
+function selectReportReason(btn, reason) {
+  if (reportTarget.alreadyFlagged) return;
+  document.querySelectorAll('.report-reason-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  reportSelectedReason = reason;
+}
+
+async function submitReport() {
+  if (reportTarget.alreadyFlagged) return;
+  if (!reportSelectedReason) {
+    const st = document.getElementById('report-status');
+    st.textContent = '⚠ Válassz okot!';
+    st.className = 'report-status err';
+    return;
+  }
+  if (!gAccessToken) { alert('Nincs bejelentkezve!'); return; }
+
+  const btn = document.getElementById('report-submit-btn');
+  btn.disabled = true;
+  const st = document.getElementById('report-status');
+  st.textContent = '⏳ Küldés...';
+  st.className = 'report-status';
+
+  const note = document.getElementById('report-note').value.trim();
+  const reporter = (gUserInfo && gUserInfo.name) ? gUserInfo.name : 'Névtelen';
+  // H oszlop: "ok (bejelentő)" formában
+  const flagTypeValue = `${reportSelectedReason} (${reporter})`;
+
+  try {
+    // Írjuk a G=TRUE, H=ok (bejelentő), I=megjegyzés oszlopokba az adott sorba
+    const range = `Sheet1!G${reportTarget.sheetRow}:I${reportTarget.sheetRow}`;
+    const values = [['TRUE', flagTypeValue, note]];
+
+    const writeResp = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/${encodeURIComponent(range)}?valueInputOption=RAW`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + gAccessToken,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ values })
+    });
+
+    if (!writeResp.ok) {
+      const e = await writeResp.text();
+      throw new Error('Sheets hiba: ' + e);
+    }
+
+    st.textContent = '✓ Feljelentés elküldve!';
+    st.className = 'report-status ok';
+
+    // Frissítjük a listában az adott sort vizuálisan
+    const rowEl = document.getElementById(`cloud-row-${reportTarget.sheetRow}`);
+    if (rowEl) {
+      rowEl.style.background = 'rgba(255,107,107,0.12)';
+      rowEl.style.borderLeft = '3px solid #ff6b6b';
+      const reportBtn = rowEl.querySelector('.cloud-item-report');
+      if (reportBtn) {
+        reportBtn.classList.add('reported');
+        reportBtn.title = 'Már feljelentve: ' + reportSelectedReason;
+      }
+      const nameEl = rowEl.querySelector('.cloud-item-name');
+      if (nameEl && !nameEl.querySelector('span')) {
+        nameEl.insertAdjacentHTML('beforeend',
+          `<span title="${escHtml(reportSelectedReason)}" style="font-size:0.7rem;color:#ff6b6b;font-family:'Space Mono',monospace;">🚩</span>`);
+      }
+    }
+
+    setTimeout(closeReportModal, 1500);
+  } catch(err) {
+    st.textContent = '✗ Hiba: ' + err.message;
+    st.className = 'report-status err';
+    btn.disabled = false;
+  }
+}
+
+// -- Conditional formatting: piros sor ha G="TRUE" a Sheetsben --
+
+let sheetTabId = null; // Sheet1 numerikus ID
+
+async function ensureFlaggedFormatting() {
+  if (!gAccessToken) return;
+  try {
+    // 1. Lekérjük a Sheet1 numerikus ID-ját
+    const metaResp = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}?fields=sheets.properties`, {
+      headers: { 'Authorization': 'Bearer ' + gAccessToken }
+    });
+    const meta = await metaResp.json();
+    const sheet1 = (meta.sheets || []).find(s => s.properties.title === 'Sheet1');
+    if (!sheet1) return;
+    sheetTabId = sheet1.properties.sheetId;
+
+    // 2. Beállítunk egy conditional formatting szabályt:
+    //    Ha G oszlop (index 6) = "TRUE" → az egész sor piros háttér
+    const rule = {
+      addConditionalFormatRule: {
+        rule: {
+          ranges: [{
+            sheetId: sheetTabId,
+            startRowIndex: 1,      // 2. sortól (0-indexed, 1 = 2. sor)
+            endRowIndex: 1000,
+            startColumnIndex: 0,
+            endColumnIndex: 10      // A-J oszlopok
+          }],
+          booleanRule: {
+            condition: {
+              type: 'CUSTOM_FORMULA',
+              values: [{ userEnteredValue: '=$G2="TRUE"' }]
+            },
+            format: {
+              backgroundColor: { red: 1, green: 0.8, blue: 0.8 }  // világospiros
+            }
+          }
+        },
+        index: 0
+      }
+    };
+
+    // Megnézzük, van-e már ilyen szabály (hogy ne duplikáljuk)
+    const fmtResp = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}?fields=sheets.conditionalFormats`, {
+      headers: { 'Authorization': 'Bearer ' + gAccessToken }
+    });
+    const fmtData = await fmtResp.json();
+    const existingRules = (fmtData.sheets || [])
+      .find(s => s.properties && s.properties.sheetId === sheetTabId);
+    const alreadySet = existingRules && (existingRules.conditionalFormats || [])
+      .some(cf => JSON.stringify(cf).includes('"=$G2=\\"TRUE\\""') ||
+                  JSON.stringify(cf).includes('"=$G2="TRUE"'));
+
+    if (alreadySet) return; // már be van állítva
+
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}:batchUpdate`, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + gAccessToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ requests: [rule] })
+    });
+    console.log('Conditional formatting beállítva a Sheets-ben.');
+  } catch(e) {
+    console.warn('Conditional formatting hiba:', e);
+  }
+}
+
+// -- Cloud Playlist loading --
+
+async function loadCloudPlaylist() {
+  if (!gAccessToken) return;
+  const container = document.getElementById('cloud-playlist');
+  container.innerHTML = '<div class="cloud-loading"><div class="cloud-spinner"></div><br>Cloud playlist betöltése...</div>';
+
+  try {
+    // Columns: A=Item ID, B=Item name, C=Type, D=Notes, E=Uploader, F=File URL,
+    //          G=Flagged, H=Flagged type, I=Flagged type special, J=Cant be flagged
+    const resp = await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEETS_ID}/values/A2:J200`, {
+      headers: { 'Authorization': 'Bearer ' + gAccessToken }
+    });
+    const data = await resp.json();
+    const rows = data.values || [];
+
+    if (!rows.length) {
+      container.innerHTML = '<div class="pl-empty-cloud">Még nincs semmi a felhőben — töltsd fel az első dalt! ☁</div>';
+      document.getElementById('cloud-pl-count').textContent = '0 dal';
+      return;
+    }
+
+    // Filter out rows without a file URL (col index 5)
+    const validRows = rows.map((r, i) => ({ r, sheetRow: i + 2 }))
+                         .filter(({ r }) => r[5] && r[5].startsWith('http'));
+    document.getElementById('cloud-pl-count').textContent = validRows.length + ' dal';
+
+    container.innerHTML = validRows.map(({ r, sheetRow }) => {
+      const id           = r[0] || sheetRow;
+      const name         = r[1] || 'Ismeretlen';
+      const type         = r[2] || 'Music';
+      const notes        = r[3] || '';
+      const uploader     = r[4] || 'Névtelen';
+      const fileUrl      = r[5] || '';
+      const flagged      = (r[6] || '').toUpperCase() === 'TRUE';
+      const flagType     = r[7] || '';
+      const cantBeFlagged = (r[9] || '').toUpperCase() === 'TRUE';
+      const icon         = type === 'Video' ? '🎬' : '🎵';
+
+      // Extract Drive ID from URL
+      const driveIdMatch = fileUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      const driveId = driveIdMatch ? driveIdMatch[1] : '';
+
+      const flagBadge = flagged
+        ? `<span title="${escHtml(flagType)}" style="font-size:0.7rem;color:#ff6b6b;font-family:'Space Mono',monospace;">🚩</span>`
+        : '';
+
+      // Piros sor ha flagged, védett ikon ha cantBeFlagged
+      const rowStyle = flagged ? 'style="background:rgba(255,107,107,0.12);border-left:3px solid #ff6b6b;"' : '';
+
+      let reportBtn;
+      if (cantBeFlagged) {
+        reportBtn = `<button class="cloud-item-report reported" disabled title="Ez a dal nem jellenthető fel" style="opacity:0.3;cursor:not-allowed;">🛡</button>`;
+      } else if (flagged) {
+        reportBtn = `<button class="cloud-item-report reported" onclick="openReportModal(event,${sheetRow},'${escHtml(name)}',true)" title="Már feljelentve: ${escHtml(flagType)}">🚩</button>`;
+      } else {
+        reportBtn = `<button class="cloud-item-report" onclick="openReportModal(event,${sheetRow},'${escHtml(name)}',false)" title="Feljelentés">🚩</button>`;
+      }
+
+      return `<div class="pl-item-cloud" id="cloud-row-${sheetRow}" ${rowStyle}>
+        <div class="cloud-item-icon">${icon}</div>
+        <div class="cloud-item-info">
+          <div class="cloud-item-name">${escHtml(name)} ${flagBadge}</div>
+          <div class="cloud-item-meta">${escHtml(uploader)} ${notes ? '· ' + escHtml(notes) : ''}</div>
+        </div>
+        ${reportBtn}
+        <button class="cloud-item-play" onclick="playCloudItem('${escHtml(fileUrl)}','${escHtml(name)}','${type}','${escHtml(driveId)}')" title="Lejátszás">▶</button>
+      </div>`;
+    }).join('');
+
+  } catch(err) {
+    container.innerHTML = `<div class="pl-empty-cloud" style="color:var(--accent2)">Hiba a betöltéskor: ${err.message}</div>`;
+    console.error('Cloud playlist load error:', err);
+  }
+}
+
+function refreshCloudPlaylist() {
+  if (!gAccessToken) {
+    document.getElementById('cloud-playlist').innerHTML =
+      '<div class="pl-empty-cloud">Jelentkezz be először! ☁</div>';
+    return;
+  }
+  loadCloudPlaylist();
+}
+
+// -- Play a cloud item --
+
+// Cache for blob URLs to avoid re-downloading
+const cloudBlobCache = {};
+
+async function playCloudItem(fileUrl, name, type, driveId) {
+  if (!fileUrl) return;
+  const isVideo = type === 'Video';
+
+  // Use passed driveId, or extract from URL as fallback
+  let driveFileId = driveId || null;
+  if (!driveFileId) {
+    const idMatch = fileUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (idMatch) driveFileId = idMatch[1];
+  }
+
+  // Show loading indicator
+  showCloudStatus('⏳ Betöltés...', '');
+
+  let blobUrl = fileUrl; // fallback
+
+  if (driveFileId && gAccessToken) {
+    // Check cache first
+    if (cloudBlobCache[driveFileId]) {
+      blobUrl = cloudBlobCache[driveFileId];
+    } else {
+      try {
+        // Use Drive API with auth token to get actual media stream
+        const resp = await fetch(
+          `https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`, {
+          headers: { 'Authorization': 'Bearer ' + gAccessToken }
+        });
+        if (!resp.ok) throw new Error('Drive letöltés sikertelen: ' + resp.status);
+        const blob = await resp.blob();
+        blobUrl = URL.createObjectURL(blob);
+        cloudBlobCache[driveFileId] = blobUrl;
+      } catch(err) {
+        console.warn('Drive API stream failed, trying direct URL:', err);
+        showCloudStatus('⚠ ' + err.message, 'err');
+        blobUrl = fileUrl; // fallback to original URL
+      }
+    }
+  }
+
+  showCloudStatus('', '');
+
+  // Create a synthetic playlist item
+  const cloudItem = {
+    file: null,
+    name: name,
+    url: blobUrl,
+    dur: 0,
+    isVideo: isVideo,
+    isCloud: true,
+    driveFileId: driveFileId,
+  };
+
+  // Add to local playlist (or replace cloud slot)
+  const existing = playlist.findIndex(p => p.isCloud && p.driveFileId === driveFileId);
+  if (existing >= 0) {
+    // Update URL in case it was re-fetched
+    playlist[existing].url = blobUrl;
+    loadTrack(existing);
+  } else {
+    playlist.push(cloudItem);
+    renderPlaylist();
+    loadTrack(playlist.length - 1);
+  }
+
+  isPlaying = false;
+  togglePlay();
+
+  // Switch to local tab to show it playing
+  switchTab('local');
+  document.getElementById('upload-screen').classList.add('hidden');
+  document.getElementById('main-app').style.display = 'grid';
+}
+
+// -- Helpers --
+
+function showCloudStatus(msg, type) {
+  const el = document.getElementById('cloud-status');
+  el.textContent = msg;
+  el.className = 'cloud-status-msg' + (type ? ' ' + type : '');
+}
+
+function setCloudProgress(pct, visible) {
+  const wrap = document.getElementById('cloud-progress-wrap');
+  const fill = document.getElementById('cloud-progress-fill');
+  const label = document.getElementById('cloud-progress-label');
+  wrap.style.display = visible ? '' : 'none';
+  label.style.display = visible ? '' : 'none';
+  fill.style.width = pct + '%';
+}
+
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ===== END CLOUD FEATURES =====
+
+// Drag & drop on upload
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag'); loadFiles(e.dataTransfer.files); });
+document.getElementById('file-input').addEventListener('change', e => loadFiles(e.target.files));
+document.getElementById('folder-input').addEventListener('change', e => { loadFiles(e.target.files); e.target.value = ''; });
+
+// Drag & drop on main app
+document.body.addEventListener('dragover', e => e.preventDefault());
+document.body.addEventListener('drop', e => { e.preventDefault(); if (e.dataTransfer.files.length) loadFiles(e.dataTransfer.files); });
+
+setVolume(80);
+buildEQ();
+
+// CHESS LOGÓ SVG (arany királyné bábú)
+const chessLogoSVG = `<svg class="app-logo-svg" viewBox="0 0 44 56" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="clg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d4a017"/>
+      <stop offset="100%" stop-color="#c8522a"/>
+    </linearGradient>
+  </defs>
+  <!-- sakktábla alap -->
+  <rect x="4" y="46" width="36" height="8" rx="2" fill="url(#clg)"/>
+  <rect x="8" y="42" width="28" height="5" rx="1.5" fill="url(#clg)" opacity="0.85"/>
+  <!-- királyné nyak -->
+  <rect x="17" y="32" width="10" height="11" rx="2" fill="url(#clg)"/>
+  <!-- királyné fej -->
+  <ellipse cx="22" cy="28" rx="8" ry="7" fill="url(#clg)"/>
+  <!-- korona fogak -->
+  <polygon points="14,24 14,16 17,21" fill="url(#clg)"/>
+  <polygon points="22,24 22,14 25,21 19,21" fill="url(#clg)"/>
+  <polygon points="30,24 30,16 27,21" fill="url(#clg)"/>
+  <!-- korona alap -->
+  <rect x="13" y="22" width="18" height="4" rx="1" fill="url(#clg)"/>
+  <!-- korona gömb díszek -->
+  <circle cx="14" cy="16" r="2" fill="#f5ead0" stroke="url(#clg)" stroke-width="0.8"/>
+  <circle cx="22" cy="13" r="2.2" fill="#f5ead0" stroke="url(#clg)" stroke-width="0.8"/>
+  <circle cx="30" cy="16" r="2" fill="#f5ead0" stroke="url(#clg)" stroke-width="0.8"/>
+  <!-- arc -->
+  <ellipse cx="19.5" cy="28" rx="1.2" ry="1.4" fill="#1a1208" opacity="0.7"/>
+  <ellipse cx="24.5" cy="28" rx="1.2" ry="1.4" fill="#1a1208" opacity="0.7"/>
+  <path d="M20,31 Q22,32.5 24,31" fill="none" stroke="#1a1208" stroke-width="0.8" stroke-linecap="round" opacity="0.6"/>
+  <!-- sakktábla minta az alapon -->
+  <rect x="4" y="46" width="9" height="4" rx="0" fill="#f5ead0" opacity="0.15"/>
+  <rect x="22" y="46" width="9" height="4" rx="0" fill="#f5ead0" opacity="0.15"/>
+</svg>`;
+
+const sonicLogoSVG = document.getElementById('header-logo').outerHTML;
+
+function setTheme(theme) {
+  const root = document.documentElement;
+  if (theme === 'chess') {
+    root.setAttribute('data-theme', 'chess');
+    document.getElementById('theme-sonic').classList.remove('active');
+    document.getElementById('theme-chess').classList.add('active');
+    document.getElementById('header-logo').outerHTML; // kept for reference
+    document.querySelector('.app-logo-svg').outerHTML;
+    document.querySelector('.app-logo').querySelector('svg').outerHTML;
+    // swap logo
+    const logoContainer = document.querySelector('.app-logo');
+    logoContainer.querySelector('svg').remove();
+    logoContainer.insertAdjacentHTML('afterbegin', chessLogoSVG);
+  } else {
+    root.removeAttribute('data-theme');
+    document.getElementById('theme-sonic').classList.add('active');
+    document.getElementById('theme-chess').classList.remove('active');
+    // swap back
+    const logoContainer = document.querySelector('.app-logo');
+    logoContainer.querySelector('svg').remove();
+    logoContainer.insertAdjacentHTML('afterbegin', `<svg class="app-logo-svg" id="header-logo" viewBox="0 0 44 56" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#7c6dfa"/><stop offset="100%" stop-color="#fa6d8f"/></linearGradient></defs>
+      <path d="M3 12 L11 12 L20 4 L20 32 L11 24 L3 24 Z" fill="url(#lg)"/>
+      <path d="M20 10 Q27 14 27 18 Q27 22 20 26" fill="none" stroke="url(#lg)" stroke-width="2" stroke-linecap="round"/>
+      <path d="M20 6 Q31 11 31 18 Q31 25 20 30" fill="none" stroke="url(#lg)" stroke-width="1.2" stroke-linecap="round" opacity="0.45"/>
+      <ellipse cx="12" cy="44" rx="8" ry="6.5" fill="#1a1a2e" stroke="url(#lg)" stroke-width="1.2"/>
+      <circle cx="12" cy="35" r="7" fill="#1a1a2e" stroke="url(#lg)" stroke-width="1.2"/>
+      <polygon points="7,30 4,23 10,28" fill="#7c6dfa"/>
+      <polygon points="17,30 20,23 14,28" fill="#fa6d8f"/>
+      <ellipse cx="9.5" cy="34" rx="2" ry="2.3" fill="url(#lg)"/>
+      <ellipse cx="14.5" cy="34" rx="2" ry="2.3" fill="url(#lg)"/>
+      <ellipse cx="9.5" cy="34.5" rx="0.9" ry="1.8" fill="#080810"/>
+      <ellipse cx="14.5" cy="34.5" rx="0.9" ry="1.8" fill="#080810"/>
+      <circle cx="10" cy="33.2" r="0.7" fill="white" opacity="0.9"/>
+      <circle cx="15" cy="33.2" r="0.7" fill="white" opacity="0.9"/>
+      <polygon points="12,37.5 10.8,38.8 13.2,38.8" fill="#fa6d8f"/>
+      <path d="M10.8,38.8 Q12,40.5 13.2,38.8" fill="none" stroke="#fa6d8f" stroke-width="0.8" stroke-linecap="round"/>
+      <line x1="4" y1="38" x2="10" y2="38.5" stroke="#7c6dfa" stroke-width="0.8" opacity="0.9"/>
+      <line x1="4" y1="39.5" x2="10" y2="39.5" stroke="#7c6dfa" stroke-width="0.8" opacity="0.9"/>
+      <line x1="20" y1="38" x2="14" y2="38.5" stroke="#fa6d8f" stroke-width="0.8" opacity="0.9"/>
+      <line x1="20" y1="39.5" x2="14" y2="39.5" stroke="#fa6d8f" stroke-width="0.8" opacity="0.9"/>
+      <ellipse cx="6" cy="49.5" rx="4" ry="3" fill="#1a1a2e" stroke="url(#lg)" stroke-width="1"/>
+      <ellipse cx="18" cy="49.5" rx="4" ry="3" fill="#1a1a2e" stroke="url(#lg)" stroke-width="1"/>
+      <line x1="3.5" y1="51" x2="3.5" y2="53" stroke="#7c6dfa" stroke-width="1.2" stroke-linecap="round"/>
+      <line x1="6" y1="51.5" x2="6" y2="53.5" stroke="#7c6dfa" stroke-width="1.2" stroke-linecap="round"/>
+      <line x1="8.5" y1="51" x2="8.5" y2="53" stroke="#7c6dfa" stroke-width="1.2" stroke-linecap="round"/>
+      <line x1="15.5" y1="51" x2="15.5" y2="53" stroke="#fa6d8f" stroke-width="1.2" stroke-linecap="round"/>
+      <line x1="18" y1="51.5" x2="18" y2="53.5" stroke="#fa6d8f" stroke-width="1.2" stroke-linecap="round"/>
+      <line x1="20.5" y1="51" x2="20.5" y2="53" stroke="#fa6d8f" stroke-width="1.2" stroke-linecap="round"/>
+      <path d="M20 46 Q32 42 33 50 Q34 56 26 55" fill="none" stroke="url(#lg)" stroke-width="2" stroke-linecap="round"/>
+    </svg>`);
+  }
+}
+</script>
+</body>
+</html>
